@@ -1,8 +1,5 @@
 # Kim's Quality Foods • Flyer Builder
-- Left pane tabs: **Editor · Design · Media**
-- **Design**: live theme controls (colors, font, sale bubble styles), presets (Classic, Halloween, Christmas, Easter), Reset to defaults, toasts.
-- **Media**: browser-only library (IndexedDB), upload, search, rename, delete, **export/import zip**, copy **media://token** for Featured images.
-- Preview (right pane) updates live. Sticky headers. Contiguous groups layout.
+A simple Flyer building app that takes in an .xlsx file with specific parameters. These can be changed to fit newer requirements. Designed for quick changes and easy theme editing. A simple SPA that has all the assets loaded inside already. Makes downloading images built off a canvas easy for posting.
 
 ## Run
 npm i
