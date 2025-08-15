@@ -1,4 +1,4 @@
-# Kim's Quality Foods • Flyer Builder (v5)
+# Kim's Quality Foods • Flyer Builder
 - Left pane tabs: **Editor · Design · Media**
 - **Design**: live theme controls (colors, font, sale bubble styles), presets (Classic, Halloween, Christmas, Easter), Reset to defaults, toasts.
 - **Media**: browser-only library (IndexedDB), upload, search, rename, delete, **export/import zip**, copy **media://token** for Featured images.
