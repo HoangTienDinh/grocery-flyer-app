@@ -5,9 +5,11 @@ import {
 } from '../utils/media'
 import { saveAs } from 'file-saver'
 
-/* ============================================================
-   Helpers
-============================================================ */
+/* ---------- NEW: build-time manifest of repo images in src/assets ---------- */
+const ASSET_MANIFEST: Record<string, string> =
+  import.meta.glob('../assets/*.{png,jpg,jpeg,webp,gif,svg}', { eager: true, as: 'url' }) as any
+
+type MediaWithUrl = MediaItem & { url?: string }  // allow url on items from assets
 
 function useResizeColumns(maxCols = 3, cardMinWidth = 220) {
   const ref = useRef<HTMLDivElement | null>(null)
@@ -28,13 +30,11 @@ function useResizeColumns(maxCols = 3, cardMinWidth = 220) {
   return { ref, cols }
 }
 
-// If you have a real thumbnail getter, return its URL here.
-// For now, we may not have one → placeholder will render.
-function thumbUrlFor(_item: MediaItem): string | undefined {
-  return undefined
+/* Use the url we attach on asset-backed items */
+function thumbUrlFor(item: MediaWithUrl): string | undefined {
+  return item.url
 }
 
-/* A friendly placeholder for cards without a thumbnail */
 function PlaceholderThumb() {
   return (
     <div
@@ -56,21 +56,35 @@ function PlaceholderThumb() {
   )
 }
 
-/* ============================================================
-   Component
-============================================================ */
-
 export default function MediaPanel({ toast }: { toast: (m: string) => void }) {
   const [items, setItems] = useState<MediaItem[]>([])
   const [q, setQ] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  const load = () => listMedia().then(setItems)
+  // Build “bundled assets” from the repo at build time
+  const bundledAssets: MediaWithUrl[] = useMemo(() => {
+    return Object.entries(ASSET_MANIFEST).map(([path, url]) => {
+      const name = path.split('/').pop() || 'asset'
+      return {
+        id: `asset:${name}`,      // distinguish from IndexedDB ids
+        name,
+        url,                      // used for thumbnails + resolve
+      }
+    })
+  }, [])
+
+  const load = () => listMedia().then(setItems)   // IndexedDB / uploaded items
   useEffect(() => { load() }, [])
 
+  // Merge: repo assets first (read-only), then user uploads (editable)
+  const library: MediaWithUrl[] = useMemo(
+    () => [...bundledAssets, ...items as MediaWithUrl[]],
+    [bundledAssets, items]
+  )
+
   const filtered = useMemo(
-    () => items.filter(i => i.name.toLowerCase().includes(q.toLowerCase())),
-    [items, q]
+    () => library.filter(i => i.name.toLowerCase().includes(q.toLowerCase())),
+    [library, q]
   )
 
   const onUpload = async (files: FileList | null) => {
@@ -87,12 +101,9 @@ export default function MediaPanel({ toast }: { toast: (m: string) => void }) {
   }
 
   const onExportSelected = async () => {
-    if (selected.size === 0) {
-      toast('No items selected'); return
-    }
+    if (selected.size === 0) { toast('No items selected'); return }
     try {
-      // If your util supports IDs: exportZip([...selected])
-      // @ts-ignore
+      // @ts-ignore your export may or may not support a subset
       const blob = await exportZip(Array.from(selected))
       saveAs(blob, 'media-selected.zip')
       toast('Exported selected')
@@ -111,6 +122,8 @@ export default function MediaPanel({ toast }: { toast: (m: string) => void }) {
   }
 
   const onDelete = async (id: string) => {
+    // ignore deletes for bundled assets
+    if (id.startsWith('asset:')) { toast('Bundled assets cannot be deleted'); return }
     await removeMedia(id)
     setSelected(prev => { const s = new Set(prev); s.delete(id); return s })
     await load()
@@ -118,20 +131,16 @@ export default function MediaPanel({ toast }: { toast: (m: string) => void }) {
   }
 
   const onDeleteSelected = async () => {
-    if (selected.size === 0) { toast('No items selected'); return }
-    if (!confirm(`Delete ${selected.size} selected item(s)?`)) return
-    for (const id of selected) {
+    const onlyUserIds = Array.from(selected).filter(id => !id.startsWith('asset:'))
+    if (onlyUserIds.length === 0) { toast('No deletable items selected'); return }
+    if (!confirm(`Delete ${onlyUserIds.length} selected item(s)?`)) return
+    for (const id of onlyUserIds) {
       // eslint-disable-next-line no-await-in-loop
       await removeMedia(id)
     }
     setSelected(new Set())
     await load()
     toast('Deleted selected')
-  }
-
-  const copy = (text: string) => {
-    navigator.clipboard.writeText(text)
-    toast('Copied token')
   }
 
   // responsive grid (max 3 columns)
@@ -143,154 +152,97 @@ export default function MediaPanel({ toast }: { toast: (m: string) => void }) {
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <label className="relative inline-flex">
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={(e) => onUpload(e.target.files)}
-              className="hidden"
-            />
+            <input type="file" multiple accept="image/*"
+              onChange={(e) => onUpload(e.target.files)} className="hidden" />
             <span className="px-2.5 py-1 rounded bg-neutral-200 hover:bg-neutral-300 cursor-pointer text-xs sm:text-sm">
               Browse…
             </span>
           </label>
 
-        {/* Regular Import/Export (hidden under ~520px) */}
-          <button
-            className="hidden min-[520px]:inline-block px-2.5 py-1 rounded bg-neutral-200 hover:bg-neutral-300 text-xs sm:text-sm"
-            onClick={onExportAll}
-          >
-            Export
-          </button>
+          <button className="hidden min-[520px]:inline-block px-2.5 py-1 rounded bg-neutral-200 hover:bg-neutral-300 text-xs sm:text-sm"
+            onClick={onExportAll}>Export</button>
 
           <label className="hidden min-[520px]:inline-block px-2.5 py-1 rounded bg-neutral-200 hover:bg-neutral-300 cursor-pointer text-xs sm:text-sm">
             Import
-            <input
-              type="file"
-              accept=".zip"
-              className="hidden"
-              onChange={(e) => onImport(e.target.files?.[0] || null)}
-            />
+            <input type="file" accept=".zip" className="hidden"
+              onChange={(e) => onImport(e.target.files?.[0] || null)} />
           </label>
 
-          {/* More menu (visible under ~520px) */}
           <details className="min-[520px]:hidden">
             <summary className="px-2.5 py-1 rounded bg-neutral-200 hover:bg-neutral-300 cursor-pointer text-xs sm:text-sm select-none">
               More
             </summary>
             <div className="mt-1 flex flex-col rounded border bg-white shadow">
-              <button className="px-3 py-1 text-left hover:bg-neutral-50" onClick={onExportAll}>
-                Export
-              </button>
+              <button className="px-3 py-1 text-left hover:bg-neutral-50" onClick={onExportAll}>Export</button>
               <label className="px-3 py-1 text-left hover:bg-neutral-50 cursor-pointer">
                 Import
-                <input
-                  type="file"
-                  accept=".zip"
-                  className="hidden"
-                  onChange={(e) => onImport(e.target.files?.[0] || null)}
-                />
+                <input type="file" accept=".zip" className="hidden"
+                  onChange={(e) => onImport(e.target.files?.[0] || null)} />
               </label>
             </div>
           </details>
         </div>
 
-        {/* Bulk actions */}
         {selected.size > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-xs sm:text-sm text-neutral-600">{selected.size} selected</span>
-            <button
-              className="px-2.5 py-1 rounded bg-neutral-200 hover:bg-neutral-300 text-xs sm:text-sm"
-              onClick={onExportSelected}
-            >
-              Export selected
-            </button>
-            <button
-              className="px-2.5 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 text-xs sm:text-sm"
-              onClick={onDeleteSelected}
-            >
-              Delete selected
-            </button>
+            <button className="px-2.5 py-1 rounded bg-neutral-200 hover:bg-neutral-300 text-xs sm:text-sm"
+              onClick={onExportSelected}>Export selected</button>
+            <button className="px-2.5 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 text-xs sm:text-sm"
+              onClick={onDeleteSelected}>Delete selected</button>
           </div>
         )}
 
-        {/* Search grows, wraps when tight */}
-        <input
-          placeholder="Search…"
-          className="ml-auto min-w-[180px] sm:min-w-[260px] flex-1 border rounded p-1"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          aria-label="Search media"
-        />
+        <input placeholder="Search…" className="ml-auto min-w-[180px] sm:min-w-[260px] flex-1 border rounded p-1"
+          value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search media" />
       </div>
 
       {/* Grid */}
-      <div
-        ref={gridRef}
-        className="grid gap-3"
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-      >
+      <div ref={gridRef} className="grid gap-3" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
         {filtered.map((it) => {
           const checked = selected.has(it.id)
           const toggle = () =>
             setSelected(prev => {
               const s = new Set(prev)
-              if (s.has(it.id)) s.delete(it.id)
-              else s.add(it.id)
+              s.has(it.id) ? s.delete(it.id) : s.add(it.id)
               return s
             })
           const thumb = thumbUrlFor(it)
 
-          return (
-            <article
-              key={it.id}
-              className="relative rounded border bg-white p-3"
-              tabIndex={-1}
-            >
-              {/* thumbnail becomes the positioning context */}
-              <div
-                className="relative rounded border bg-neutral-100 overflow-hidden" // <- add 'relative'
-                style={{ aspectRatio: '4 / 3', minHeight: 120 }}
-              >
-                {/* selection checkbox pinned to the image box */}
-                <label className="absolute left-2 top-2 z-10 bg-white/90 rounded px-1">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={toggle}
-                    aria-label={`Select ${it.name}`}
-                  />
-                </label>
+          // token: DB items use tokenFor(id); assets use asset://filename
+          const token = it.id.startsWith('asset:')
+            ? `asset://${it.id.slice(6)}`
+            : tokenFor(it.id)
 
-                {/* thumbnail w/ placeholder */}
+          return (
+            <article key={it.id} className="relative rounded border bg-white p-3" tabIndex={-1}>
+              <div className="relative rounded border bg-neutral-100 overflow-hidden" style={{ aspectRatio: '4 / 3', minHeight: 120 }}>
+                <label className="absolute left-2 top-2 z-10 bg-white/90 rounded px-1">
+                  <input type="checkbox" checked={checked} onChange={toggle} aria-label={`Select ${it.name}`} />
+                </label>
                 {thumb ? (
-                  <img
-                    src={thumb}
-                    alt={it.name}
-                    className="w-full h-full object-contain"
-                    loading="lazy"
-                  />
+                  <img src={thumb} alt={it.name} className="w-full h-full object-contain" loading="lazy" />
                 ) : (
                   <PlaceholderThumb />
                 )}
               </div>
 
-              {/* filename */}
-              <div className="mt-2 text-sm truncate" title={it.name}>
-                {it.name}
-              </div>
+              <div className="mt-2 text-sm truncate" title={it.name}>{it.name}</div>
 
-              {/* actions pinned bottom */}
               <div className="mt-2 flex flex-wrap gap-1">
                 <button className="px-2 py-1 text-xs rounded border hover:bg-neutral-50"
-                        onClick={() => { navigator.clipboard.writeText(tokenFor(it.id)); toast('Copied token') }}>
+                        onClick={() => { navigator.clipboard.writeText(token); toast('Copied token') }}>
                   Copy token
                 </button>
-                <button className="px-2 py-1 text-xs rounded border hover:bg-neutral-50"
+
+                {/* Disable rename/delete for bundled assets */}
+                <button className={`px-2 py-1 text-xs rounded border hover:bg-neutral-50 ${it.id.startsWith('asset:') ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={it.id.startsWith('asset:')}
                         onClick={async () => { const name = prompt('New name?', it.name); if (!name || name===it.name) return; await renameMedia(it.id, name); await load(); toast('Renamed') }}>
                   Rename
                 </button>
-                <button className="px-2 py-1 text-xs rounded border border-red-200 text-red-600 hover:bg-red-50"
+                <button className={`px-2 py-1 text-xs rounded border border-red-200 text-red-600 hover:bg-red-50 ${it.id.startsWith('asset:') ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={it.id.startsWith('asset:')}
                         onClick={() => onDelete(it.id)}>
                   Delete
                 </button>

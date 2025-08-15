@@ -11,27 +11,36 @@ export const CANVAS_W = 2550
 export const CANVAS_H = 3300
 const MARGIN = 120
 
-/** Resolve either media:// tokens or regular URLs */
+/** Resolve either media:// or asset:// tokens, or regular URLs */
 function useResolvedUrl(raw: string) {
   const [url, setUrl] = useState<string>('')
+
   useEffect(() => {
     let revoke: string | undefined
+
     ;(async () => {
-      if (!raw) return setUrl('')
-      if (raw.startsWith('media://')) {
+      if (!raw) { setUrl(''); return }
+
+      // resolve app tokens
+      if (raw.startsWith('media://') || raw.startsWith('asset://')) {
         const obj = await resolveTokenToObjectUrl(raw)
         if (obj) {
           setUrl(obj)
-          revoke = obj
+          // only revoke blob: URLs we create; asset URLs (http/file) shouldn’t be revoked
+          if (obj.startsWith('blob:')) revoke = obj
+        } else {
+          setUrl('')
         }
-      } else {
-        setUrl(raw)
+        return
       }
+
+      // passthrough http(s) and other direct URLs
+      setUrl(raw)
     })()
-    return () => {
-      if (revoke) URL.revokeObjectURL(revoke)
-    }
+
+    return () => { if (revoke) URL.revokeObjectURL(revoke) }
   }, [raw])
+
   return url
 }
 
