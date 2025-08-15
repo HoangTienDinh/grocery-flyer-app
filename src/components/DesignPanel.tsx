@@ -27,11 +27,11 @@ const FONT_CSS: Record<FontName, string> = {
   'Lato':        'https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap',
   'Montserrat':  'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap',
   'Noto Sans':   'https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&display=swap',
-  'Creepster': 'https://fonts.googleapis.com/css2?family=Creepster&display=swap',
+  'Creepster':   'https://fonts.googleapis.com/css2?family=Creepster&display=swap',
   'Great Vibes': 'https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap',
-  'Pacifico': 'https://fonts.googleapis.com/css2?family=Pacifico&display=swap',
-  'Bebas Neue': 'https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap',
-  'Lobster': 'https://fonts.googleapis.com/css2?family=Lobster&display=swap',
+  'Pacifico':    'https://fonts.googleapis.com/css2?family=Pacifico&display=swap',
+  'Bebas Neue':  'https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap',
+  'Lobster':     'https://fonts.googleapis.com/css2?family=Lobster&display=swap',
 }
 
 function fontStack(name: string) {
@@ -107,8 +107,6 @@ function useOutside(ref: React.RefObject<HTMLElement>, onOutside: ()=>void){
   }, [ref, onOutside])
 }
 
-/* ----------------- Color picker with popover ----------------- */
-
 function normalizeHex(v: string){
   // force #RRGGBB; allow shorthand or missing '#'
   let s = v.trim()
@@ -118,22 +116,49 @@ function normalizeHex(v: string){
     s = `#${r}${r}${g}${g}${b}${b}`
   }
   if (/^#([0-9a-f]{6})$/i.test(s)) return s.toUpperCase()
-  return '#000000'
+  return s.toUpperCase() // let picker handle invalid; input shows user text
 }
+
+/* ----------------- Color picker with live preview + revert ----------------- */
 
 function ColorRow({label,value,onChange}:{label:string;value:string;onChange:(v:string)=>void}){
   const [open, setOpen] = useState(false)
   const [local, setLocal] = useState(value || '#000000')
+  const startRef = useRef(value) // remembers value at open
   const rootRef = useRef<HTMLDivElement>(null)
-  useOutside(rootRef, ()=> setOpen(false))
 
-  useEffect(()=>{ setLocal(value) }, [value])
+  // When prop changes externally, reflect it
+  useEffect(()=>{ if (!open) setLocal(value) }, [value, open])
 
-  const commit = (v: string)=>{
-    const hex = normalizeHex(v)
-    setLocal(hex)
-    onChange(hex)
+  // Outside click: close and revert to starting value
+  useOutside(rootRef, ()=>{
+    if (!open) return
+    setOpen(false)
+    setLocal(startRef.current)
+    onChange(startRef.current) // revert
+  })
+
+  const openPopover = ()=>{
+    startRef.current = value // snapshot current theme color
+    setLocal(value)
+    setOpen(true)
   }
+
+  const apply = ()=>{
+    setOpen(false) // keep whatever is currently previewed
+    const hex = normalizeHex(local)
+    setLocal(hex)
+    onChange(hex) // ensure normalized value is saved
+  }
+
+  const cancel = ()=>{
+    setOpen(false)
+    setLocal(startRef.current)
+    onChange(startRef.current)
+  }
+
+  // Valid hex? (#RGB or #RRGGBB or without '#')
+  const isLikelyHex = (s: string)=> /^#?[0-9a-f]{3}([0-9a-f]{3})?$/i.test(s.trim())
 
   return (
     <div className="flex items-center justify-between gap-3" ref={rootRef}>
@@ -145,36 +170,44 @@ function ColorRow({label,value,onChange}:{label:string;value:string;onChange:(v:
           type="button"
           className="h-8 w-8 rounded border shadow-inner"
           style={{ backgroundColor: value }}
-          onClick={()=> setOpen(true)}
+          onClick={openPopover}
           aria-label={`Choose ${label} color`}
         />
 
-        {/* hex input */}
+        {/* hex input: live preview when valid; Enter = Apply */}
         <input
           className="border rounded p-1 w-28"
           value={local}
-          onChange={e=> setLocal(e.target.value)}
-          onBlur={()=> commit(local)}
-          onKeyDown={(e)=>{ if (e.key === 'Enter') commit(local) }}
+          onChange={e=>{
+            const next = e.target.value
+            setLocal(next)
+            if (isLikelyHex(next)) onChange(normalizeHex(next)) // live preview while typing valid hex
+          }}
+          onKeyDown={(e)=>{ if (e.key === 'Enter') apply() }}
+          onBlur={()=>{ if (!open) apply() }} // commit when editing text without popover
         />
 
         {/* popover */}
         {open && (
           <div className="absolute right-0 top-10 z-30 rounded border bg-white p-3 shadow-lg">
             <HexColorPicker
-              color={local}
-              onChange={(c)=> setLocal(c.toUpperCase())}
+              color={normalizeHex(local)}
+              onChange={(c)=> {
+                const hex = c.toUpperCase()
+                setLocal(hex)
+                onChange(hex)        // LIVE PREVIEW
+              }}
             />
             <div className="mt-2 flex justify-end gap-2">
               <button
                 className="px-2 py-1 text-sm rounded border hover:bg-neutral-100"
-                onClick={()=> setOpen(false)}
+                onClick={cancel}
               >
                 Cancel
               </button>
               <button
                 className="px-2 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
-                onClick={()=>{ commit(local); setOpen(false) }}
+                onClick={apply}
               >
                 Apply
               </button>
