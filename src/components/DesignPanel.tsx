@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 
 export type BadgeStyle = 'starburst' | 'pill' | 'badge' | 'sticker'
 export type Theme = {
@@ -9,10 +9,44 @@ export type Theme = {
   saleBubble: { textColor: string; bgColor: string; style: BadgeStyle }
   featured:   { textColor: string; bgColor: string }
   category:   { textColor: string; bgColor: string }
-  saleItem:   { textColor: string; fontScale: number }   // ← added fontScale
+  saleItem:   { textColor: string; fontScale: number }
 }
 
-const FONT_OPTIONS = ['Roboto','Inter','Open Sans','Lato','Montserrat','Noto Sans']
+const FONT_OPTIONS = [
+  'Roboto', 'Inter', 'Open Sans', 'Lato', 'Montserrat', 'Noto Sans',
+  'Creepster', 'Great Vibes', 'Pacifico', 'Bebas Neue', 'Lobster'
+] as const
+type FontName = typeof FONT_OPTIONS[number]
+
+/* Google Fonts CSS endpoints */
+const FONT_CSS: Record<FontName, string> = {
+  'Roboto':      'https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap',
+  'Inter':       'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap',
+  'Open Sans':   'https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap',
+  'Lato':        'https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap',
+  'Montserrat':  'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap',
+  'Noto Sans':   'https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&display=swap',
+  'Creepster': 'https://fonts.googleapis.com/css2?family=Creepster&display=swap',
+  'Great Vibes': 'https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap',
+  'Pacifico': 'https://fonts.googleapis.com/css2?family=Pacifico&display=swap',
+  'Bebas Neue': 'https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap',
+  'Lobster': 'https://fonts.googleapis.com/css2?family=Lobster&display=swap',
+}
+
+function fontStack(name: string) {
+  return `${name}, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif`
+}
+function ensureFontCssLoaded(family: FontName) {
+  const id = `gf-${family.replace(/\s+/g, '-')}`
+  if (document.getElementById(id)) return
+  const href = FONT_CSS[family]
+  if (!href) return
+  const link = document.createElement('link')
+  link.id = id
+  link.rel = 'stylesheet'
+  link.href = href
+  document.head.appendChild(link)
+}
 
 export const DEFAULT_THEME: Theme = {
   fontFamily: 'Roboto',
@@ -22,7 +56,7 @@ export const DEFAULT_THEME: Theme = {
   saleBubble: { textColor: '#FFFFFF', bgColor: '#8B1F1F', style: 'starburst' },
   featured:   { textColor: '#000000', bgColor: '#FFEAC7' },
   category:   { textColor: '#8B332A', bgColor: '#EEDFB6' },
-  saleItem:   { textColor: '#000000', fontScale: 1 },     // ← default 100%
+  saleItem:   { textColor: '#000000', fontScale: 1 },
 }
 
 export const PRESETS: Record<string, Theme> = {
@@ -60,21 +94,129 @@ export const PRESETS: Record<string, Theme> = {
 }
 
 function ColorRow({label,value,onChange}:{label:string;value:string;onChange:(v:string)=>void}){
-  return (<div className="flex items-center justify-between gap-3">
-    <span className="text-sm">{label}</span>
-    <div className="flex items-center gap-2">
-      <input type="color" value={value} onChange={e=>onChange(e.target.value)} />
-      <input className="border rounded p-1 w-28" value={value} onChange={e=>onChange(e.target.value)} />
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-sm">{label}</span>
+      <div className="flex items-center gap-2">
+        <input type="color" value={value} onChange={e=>onChange(e.target.value)} />
+        <input className="border rounded p-1 w-28" value={value} onChange={e=>onChange(e.target.value)} />
+      </div>
     </div>
-  </div>)
+  )
 }
+
+/* ---------- Custom Font Select (combobox/listbox) ---------- */
+
+function useOutside(ref: React.RefObject<HTMLElement>, onOutside: ()=>void){
+  useEffect(()=>{
+    function handler(e: MouseEvent){
+      if (!ref.current) return
+      if (!ref.current.contains(e.target as Node)) onOutside()
+    }
+    document.addEventListener('mousedown', handler)
+    return ()=> document.removeEventListener('mousedown', handler)
+  }, [ref, onOutside])
+}
+
+function FontSelect({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (v: FontName)=>void
+}) {
+  const [open, setOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(
+    Math.max(0, FONT_OPTIONS.findIndex(f => f === value))
+  )
+  const rootRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
+
+  useOutside(rootRef, ()=> setOpen(false))
+
+  // load all once so the menu previews immediately
+  useEffect(()=>{ FONT_OPTIONS.forEach(ensureFontCssLoaded) }, [])
+
+  // ensure active item in view when using arrows
+  useEffect(()=>{
+    if (!open || !listRef.current) return
+    const li = listRef.current.children[activeIndex] as HTMLElement | undefined
+    li?.scrollIntoView({ block: 'nearest' })
+  }, [activeIndex, open])
+
+  const setByIndex = (idx: number)=>{
+    const next = Math.min(FONT_OPTIONS.length-1, Math.max(0, idx))
+    setActiveIndex(next)
+  }
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={()=> setOpen(v=>!v)}
+        onKeyDown={(e)=>{
+          if (e.key === 'ArrowDown'){ e.preventDefault(); setOpen(true); setByIndex(activeIndex+1) }
+          if (e.key === 'ArrowUp'){ e.preventDefault(); setOpen(true); setByIndex(activeIndex-1) }
+          if (e.key === 'Enter' || e.key === ' '){
+            e.preventDefault()
+            if (!open) { setOpen(true) }
+            else { onChange(FONT_OPTIONS[activeIndex]); setOpen(false) }
+          }
+          if (e.key === 'Escape'){ setOpen(false) }
+        }}
+        className="border rounded p-1 min-w-[12rem] flex items-center justify-between"
+        style={{ fontFamily: fontStack(value) }}
+      >
+        <span>{value}</span>
+        <svg width="14" height="14" viewBox="0 0 20 20" className="opacity-70"><path d="M5 8l5 5 5-5H5z" fill="currentColor"/></svg>
+      </button>
+
+      {open && (
+        <ul
+          ref={listRef}
+          role="listbox"
+          tabIndex={-1}
+          className="absolute right-0 z-20 mt-1 max-h-64 w-[16rem] overflow-auto rounded border bg-white shadow"
+        >
+          {FONT_OPTIONS.map((f, i)=>(
+            <li
+              key={f}
+              role="option"
+              aria-selected={value === f}
+              onMouseEnter={()=> setActiveIndex(i)}
+              onMouseDown={(e)=>{ e.preventDefault(); }} // keep focus
+              onClick={()=> { onChange(f); setOpen(false) }}
+              className={[
+                "px-3 py-2 cursor-pointer text-sm",
+                i === activeIndex ? "bg-blue-50" : "bg-white",
+                value === f ? "font-medium" : "font-normal"
+              ].join(" ")}
+              style={{ fontFamily: fontStack(f) }}
+            >
+              {f}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/* ----------------------------------------------------------- */
 
 export default function DesignPanel({ theme, setTheme, toast }:{ theme:Theme; setTheme:(t:Theme)=>void; toast:(m:string)=>void }){
   const update = (p:(t:Theme)=>Theme)=>{ setTheme(p(theme)); toast('Theme updated') }
   const reset = ()=>{ setTheme(DEFAULT_THEME); toast('Theme reset to defaults') }
   const applyPreset = (key:string)=>{ setTheme(PRESETS[key]); toast(`Applied theme: ${key}`) }
 
-  // convenience for % display
+  // also preload selected font to avoid FOUT in the closed control
+  useEffect(()=>{
+    const f = theme.fontFamily as FontName
+    if ((FONT_OPTIONS as readonly string[]).includes(f)) ensureFontCssLoaded(f)
+  }, [theme.fontFamily])
+
   const salePct = Math.round((theme.saleItem?.fontScale ?? 1) * 100)
 
   return (
@@ -92,11 +234,12 @@ export default function DesignPanel({ theme, setTheme, toast }:{ theme:Theme; se
         <div className="border rounded">
           <div className="bg-neutral-100 px-3 py-2 font-semibold rounded-t">General</div>
           <div className="p-3 space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <span className="text-sm">Font</span>
-              <select className="border rounded p-1" value={theme.fontFamily} onChange={e=>update(t=>({...t,fontFamily:e.target.value}))}>
-                {FONT_OPTIONS.map(f=> <option key={f} value={f}>{f}</option>)}
-              </select>
+              <FontSelect
+                value={theme.fontFamily}
+                onChange={(f)=> update(t=> ({...t, fontFamily: f}))}
+              />
             </div>
             <ColorRow label="Background color" value={theme.backgroundColor} onChange={(v)=>update(t=>({...t,backgroundColor:v}))} />
           </div>
@@ -155,7 +298,6 @@ export default function DesignPanel({ theme, setTheme, toast }:{ theme:Theme; se
           <div className="bg-neutral-100 px-3 py-2 font-semibold rounded-t">Sale Item</div>
           <div className="p-3 space-y-3">
             <ColorRow label="Text color" value={theme.saleItem.textColor} onChange={(v)=>update(t=>({...t,saleItem:{...t.saleItem,textColor:v}}))} />
-            {/* New: row font size */}
             <div className="flex items-center justify-between">
               <span className="text-sm">Row font size</span>
               <div className="flex items-center gap-2">
