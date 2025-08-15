@@ -185,13 +185,45 @@ export default function App(){
     </div>
   )
 
+  // LEFT tabs (already styled)
   const leftTopTabs = (
-    <div className="px-3 py-2 border-b bg-white sticky top-0 z-10 flex items-center gap-2">
-      {(['editor','design','media'] as LeftTab[]).map(t => (
-        <button key={t} onClick={()=>setLeftTab(t)} className={`px-3 py-1 text-xs rounded border ${leftTab===t?'bg-neutral-200 border-neutral-300':'hover:bg-neutral-100 border-transparent'}`}>
-          {t[0].toUpperCase()+t.slice(1)}
-        </button>
-      ))}
+    <div className="px-3 bg-white sticky top-0 z-10">
+      <nav aria-label="Editor/Design/Media" className="flex border-b border-neutral-200">
+        {(['editor','design','media'] as LeftTab[]).map((t, i, arr) => {
+          const isActive = leftTab === t
+          return (
+            <button
+              key={t}
+              onClick={()=>setLeftTab(t)}
+              className={[
+                "relative h-10 px-4 text-sm font-medium transition-colors duration-150",
+                "rounded-tr-xl",
+                i === 0 ? "rounded-tl-md" : "rounded-tl-none",
+                isActive ? "text-blue-700 bg-white" : "text-neutral-700 hover:bg-blue-50/40 hover:text-neutral-900",
+              ].join(" ")}
+            >
+              <span className="relative">
+                {t[0].toUpperCase()+t.slice(1)}
+                <span
+                  className={[
+                    "pointer-events-none absolute left-0 right-0 -bottom-[1px] h-0.5 bg-blue-600",
+                    "transition-all duration-150",
+                    isActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-75"
+                  ].join(" ")}
+                  aria-hidden="true"
+                />
+              </span>
+              <span
+                className={[
+                  "absolute right-0 top-1/2 -translate-y-1/2 h-5 w-px bg-neutral-200",
+                  i === arr.length - 1 ? "hidden" : ""
+                ].join(" ")}
+                aria-hidden="true"
+              />
+            </button>
+          )
+        })}
+      </nav>
     </div>
   )
 
@@ -211,29 +243,62 @@ export default function App(){
 
   const right = (
   <div className="flex flex-col h-full">
-    {/* Measured header */}
+    {/* RIGHT header — aligned with left: items-end + matching tab height */}
     <div
       ref={headerRef}
-      className="border-b px-5 h-[52px] flex items-center gap-2 bg-white sticky top-0 z-10"
+      className="border-b px-3 h-10 bg-white sticky top-0 z-10 flex items-center"
     >
-      {[
-        { key: 'featured', label: 'Image 1 – Featured' },
-        { key: 'grocery',  label: 'Image 2 – Grocery' },
-        { key: 'groups',   label: 'Image 3 – Groups'  },
-      ].map(t => (
-        <button key={t.key} onClick={()=> setTab(t.key as Tab)}
-          className={`px-2.5 py-1 text-xs rounded border ${tab===t.key ? 'bg-neutral-200 border-neutral-300' : 'hover:bg-neutral-100 border-transparent'}`}>
-          {t.label}
-        </button>
-      ))}
-      <div className="ml-auto flex items-center gap-2">
-        <ZoomBar
-          zoom={zoom}
-          setZoom={setZoom}
-          fitOn={fitOn}
-          toggleFit={()=>setFitOn(v=>!v)}
-          resetFit={()=>setFitOn(true)}
-        />
+      <div className="flex items-center w-full">
+        <nav aria-label="Output images" className="flex border-b border-neutral-200">
+          {([
+            { key: 'featured', label: 'Image 1 – Featured' },
+            { key: 'grocery',  label: 'Image 2 – Grocery' },
+            { key: 'groups',   label: 'Image 3 – Groups'  },
+          ] as const).map((t, i, arr) => {
+            const isActive = tab === t.key
+            return (
+              <button
+                key={t.key}
+                onClick={()=> setTab(t.key as Tab)}
+                className={[
+                  "relative h-10 px-3 text-xs font-medium transition-colors duration-150",
+                  "rounded-tr-xl",
+                  i === 0 ? "rounded-tl-md" : "rounded-tl-none",
+                  isActive ? "text-blue-700 bg-white" : "text-neutral-700 hover:bg-blue-50/40 hover:text-neutral-900",
+                ].join(" ")}
+              >
+                <span className="relative">
+                  {t.label}
+                  <span
+                    className={[
+                      "pointer-events-none absolute left-0 right-0 -bottom-[1px] h-0.5 bg-blue-600",
+                      "transition-all duration-150",
+                      isActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-75"
+                    ].join(" ")}
+                    aria-hidden="true"
+                  />
+                </span>
+                <span
+                  className={[
+                    "absolute right-0 top-1/2 -translate-y-1/2 h-5 w-px bg-neutral-200",
+                    i === arr.length - 1 ? "hidden" : ""
+                  ].join(" ")}
+                  aria-hidden="true"
+                />
+              </button>
+            )
+          })}
+        </nav>
+
+        <div className="ml-auto flex items-center gap-2">
+          <ZoomBar
+            zoom={zoom}
+            setZoom={setZoom}
+            fitOn={fitOn}
+            toggleFit={()=>setFitOn(v=>!v)}
+            resetFit={()=>setFitOn(true)}
+          />
+        </div>
       </div>
     </div>
 
@@ -242,7 +307,7 @@ export default function App(){
       <FitStage
         designW={CANVAS_W}
         designH={CANVAS_H}
-        containerHeight={availableHeight}   // ← no magic numbers
+        containerHeight={availableHeight}
         zoom={zoom}
         fitOn={fitOn}
         onFitWidthScale={()=>{}}
@@ -252,7 +317,7 @@ export default function App(){
       </FitStage>
     </div>
 
-    {/* Measured footer */}
+    {/* footer */}
     <div
       ref={footerRef}
       className="border-t px-4 py-3 flex items-center gap-2 justify-end bg-white"
@@ -266,7 +331,6 @@ export default function App(){
     </div>
   </div>
 )
-
 
   return (<>
     <SplitPane left={left} right={right} />
