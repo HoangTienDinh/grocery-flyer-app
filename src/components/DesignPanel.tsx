@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { HexColorPicker } from 'react-colorful'
 
 export type BadgeStyle = 'starburst' | 'pill' | 'badge' | 'sticker'
 export type Theme = {
@@ -93,19 +94,7 @@ export const PRESETS: Record<string, Theme> = {
   }
 }
 
-function ColorRow({label,value,onChange}:{label:string;value:string;onChange:(v:string)=>void}){
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm">{label}</span>
-      <div className="flex items-center gap-2">
-        <input type="color" value={value} onChange={e=>onChange(e.target.value)} />
-        <input className="border rounded p-1 w-28" value={value} onChange={e=>onChange(e.target.value)} />
-      </div>
-    </div>
-  )
-}
-
-/* ---------- Custom Font Select (combobox/listbox) ---------- */
+/* ----------------- Shared utils ----------------- */
 
 function useOutside(ref: React.RefObject<HTMLElement>, onOutside: ()=>void){
   useEffect(()=>{
@@ -117,6 +106,87 @@ function useOutside(ref: React.RefObject<HTMLElement>, onOutside: ()=>void){
     return ()=> document.removeEventListener('mousedown', handler)
   }, [ref, onOutside])
 }
+
+/* ----------------- Color picker with popover ----------------- */
+
+function normalizeHex(v: string){
+  // force #RRGGBB; allow shorthand or missing '#'
+  let s = v.trim()
+  if (!s.startsWith('#')) s = `#${s}`
+  if (/^#([0-9a-f]{3})$/i.test(s)) {
+    const [, r,g,b] = s.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i) as RegExpMatchArray
+    s = `#${r}${r}${g}${g}${b}${b}`
+  }
+  if (/^#([0-9a-f]{6})$/i.test(s)) return s.toUpperCase()
+  return '#000000'
+}
+
+function ColorRow({label,value,onChange}:{label:string;value:string;onChange:(v:string)=>void}){
+  const [open, setOpen] = useState(false)
+  const [local, setLocal] = useState(value || '#000000')
+  const rootRef = useRef<HTMLDivElement>(null)
+  useOutside(rootRef, ()=> setOpen(false))
+
+  useEffect(()=>{ setLocal(value) }, [value])
+
+  const commit = (v: string)=>{
+    const hex = normalizeHex(v)
+    setLocal(hex)
+    onChange(hex)
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3" ref={rootRef}>
+      <span className="text-sm">{label}</span>
+
+      <div className="relative flex items-center gap-2">
+        {/* swatch that opens the popover */}
+        <button
+          type="button"
+          className="h-8 w-8 rounded border shadow-inner"
+          style={{ backgroundColor: value }}
+          onClick={()=> setOpen(true)}
+          aria-label={`Choose ${label} color`}
+        />
+
+        {/* hex input */}
+        <input
+          className="border rounded p-1 w-28"
+          value={local}
+          onChange={e=> setLocal(e.target.value)}
+          onBlur={()=> commit(local)}
+          onKeyDown={(e)=>{ if (e.key === 'Enter') commit(local) }}
+        />
+
+        {/* popover */}
+        {open && (
+          <div className="absolute right-0 top-10 z-30 rounded border bg-white p-3 shadow-lg">
+            <HexColorPicker
+              color={local}
+              onChange={(c)=> setLocal(c.toUpperCase())}
+            />
+            <div className="mt-2 flex justify-end gap-2">
+              <button
+                className="px-2 py-1 text-sm rounded border hover:bg-neutral-100"
+                onClick={()=> setOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-2 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
+                onClick={()=>{ commit(local); setOpen(false) }}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ----------------- Custom Font Select (combobox/listbox) ----------------- */
 
 function FontSelect({
   value,
@@ -135,7 +205,7 @@ function FontSelect({
   useOutside(rootRef, ()=> setOpen(false))
 
   // load all once so the menu previews immediately
-  useEffect(()=>{ FONT_OPTIONS.forEach(ensureFontCssLoaded) }, [])
+  useEffect(()=>{ (FONT_OPTIONS as readonly FontName[]).forEach(ensureFontCssLoaded) }, [])
 
   // ensure active item in view when using arrows
   useEffect(()=>{
@@ -204,7 +274,7 @@ function FontSelect({
   )
 }
 
-/* ----------------------------------------------------------- */
+/* ----------------- Panel ----------------- */
 
 export default function DesignPanel({ theme, setTheme, toast }:{ theme:Theme; setTheme:(t:Theme)=>void; toast:(m:string)=>void }){
   const update = (p:(t:Theme)=>Theme)=>{ setTheme(p(theme)); toast('Theme updated') }
@@ -214,7 +284,7 @@ export default function DesignPanel({ theme, setTheme, toast }:{ theme:Theme; se
   // also preload selected font to avoid FOUT in the closed control
   useEffect(()=>{
     const f = theme.fontFamily as FontName
-    if ((FONT_OPTIONS as readonly string[]).includes(f)) ensureFontCssLoaded(f)
+    if ((FONT_OPTIONS as readonly string[]).includes(f)) ensureFontCssLoaded(f as FontName)
   }, [theme.fontFamily])
 
   const salePct = Math.round((theme.saleItem?.fontScale ?? 1) * 100)
