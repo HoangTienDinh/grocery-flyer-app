@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { HexColorPicker } from 'react-colorful'
 
+/* ======================= Types ======================= */
+
 export type BadgeStyle = 'starburst' | 'pill' | 'badge' | 'sticker'
 export type Theme = {
   fontFamily: string
@@ -14,13 +16,14 @@ export type Theme = {
   saleItem:   { textColor: string; fontScaleGrocery: number; fontScaleGroups: number }
 }
 
+/* ======================= Fonts ======================= */
+
 const FONT_OPTIONS = [
   'Roboto', 'Inter', 'Open Sans', 'Lato', 'Montserrat', 'Noto Sans',
   'Creepster', 'Great Vibes', 'Pacifico', 'Bebas Neue', 'Lobster'
 ] as const
 type FontName = typeof FONT_OPTIONS[number]
 
-/* Google Fonts CSS endpoints */
 const FONT_CSS: Record<FontName, string> = {
   'Roboto':      'https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap',
   'Inter':       'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap',
@@ -50,28 +53,39 @@ function ensureFontCssLoaded(family: FontName) {
   document.head.appendChild(link)
 }
 
+/* ======================= Themes ======================= */
+/* Default matches your screenshot palette */
 export const DEFAULT_THEME: Theme = {
   fontFamily: 'Roboto',
   backgroundColor: '#FFFFFF',
   companyNameColor: '#335B29',
-  dateTextColor: '#F19F1F',
+  dateTextColor:   '#F19F1F',
   saleBubble: { textColor: '#FFFFFF', bgColor: '#8B1F1F', style: 'starburst' },
-  featured:   { textColor: '#000000', bgColor: '#FFEAC7' },
-  category:   { textColor: '#8B332A', bgColor: '#EEDFB6' },
-  saleItem:   { textColor: '#000000', fontScaleGrocery: 1, fontScaleGroups: 1 },
-}
+  featured:   { textColor: '#8B332A', bgColor: '#F7DDB6' },
+  category:   { textColor: '#67A259', bgColor: '#FAEDC8' },
+  saleItem:   { textColor: '#335B29', fontScaleGrocery: 1, fontScaleGroups: 1 },
+};
 
 export const PRESETS: Record<string, Theme> = {
-  'Classic': DEFAULT_THEME,
-  'Halloween': {
-    fontFamily: 'Montserrat',
-    backgroundColor: '#1A1A1A',
-    companyNameColor: '#FF7A00',
-    dateTextColor: '#FFD166',
-    saleBubble: { textColor: '#FFFFFF', bgColor: '#D7263D', style: 'sticker' },
-    featured: { textColor: '#FFFFFF', bgColor: '#3A3A3A' },
-    category: { textColor: '#FF7A00', bgColor: '#2A2A2A' },
-    saleItem: { textColor: '#EAEAEA', fontScaleGrocery: 1, fontScaleGroups: 1 },
+  'Back to School': {
+    fontFamily: 'Inter',
+    backgroundColor: '#FFFFFF',
+    companyNameColor: '#1E3A8A',
+    dateTextColor:   '#F59E0B',
+    saleBubble: { textColor: '#FCD34D', bgColor: '#1F2937', style: 'sticker' },
+    featured: { textColor: '#1F2937', bgColor: '#F3F4F6' },
+    category: { textColor: '#1E3A8A', bgColor: '#E5E7EB' },
+    saleItem: { textColor: '#1F2937', fontScaleGrocery: 1, fontScaleGroups: 1 },
+  },
+  'Canada Day': {
+    fontFamily: 'Roboto',
+    backgroundColor: '#FFFFFF',
+    companyNameColor: '#D32F2F',
+    dateTextColor:   '#D32F2F',
+    saleBubble: { textColor: '#FFFFFF', bgColor: '#D32F2F', style: 'badge' },
+    featured: { textColor: '#333333', bgColor: '#FFF5F5' },
+    category: { textColor: '#D32F2F', bgColor: '#FDEBEC' },
+    saleItem: { textColor: '#333333', fontScaleGrocery: 1, fontScaleGroups: 1 },
   },
   'Christmas': {
     fontFamily: 'Noto Sans',
@@ -83,6 +97,7 @@ export const PRESETS: Record<string, Theme> = {
     category: { textColor: '#0E7C3A', bgColor: '#E6F5EB' },
     saleItem: { textColor: '#0E0E0E', fontScaleGrocery: 1, fontScaleGroups: 1 },
   },
+  'Classic': DEFAULT_THEME,
   'Easter': {
     fontFamily: 'Lato',
     backgroundColor: '#FFFDF7',
@@ -92,10 +107,92 @@ export const PRESETS: Record<string, Theme> = {
     featured: { textColor: '#2E2E2E', bgColor: '#FFF0F6' },
     category: { textColor: '#26A69A', bgColor: '#E6FFF6' },
     saleItem: { textColor: '#2E2E2E', fontScaleGrocery: 1, fontScaleGroups: 1 },
-  }
+  },
+  'Halloween': {
+    fontFamily: 'Montserrat',
+    backgroundColor: '#1A1A1A',
+    companyNameColor: '#FF7A00',
+    dateTextColor: '#FFD166',
+    saleBubble: { textColor: '#FFFFFF', bgColor: '#D7263D', style: 'sticker' },
+    featured: { textColor: '#FFFFFF', bgColor: '#3A3A3A' },
+    category: { textColor: '#FF7A00', bgColor: '#2A2A2A' },
+    saleItem: { textColor: '#EAEAEA', fontScaleGrocery: 1, fontScaleGroups: 1 },
+  },
+  'Manitoba': {
+    fontFamily: 'Montserrat',
+    backgroundColor: '#FFFFFF',
+    companyNameColor: '#2F6B3A',
+    dateTextColor:   '#D6A742',
+    saleBubble: { textColor: '#FFFFFF', bgColor: '#7A3E2E', style: 'badge' },
+    featured: { textColor: '#2F6B3A', bgColor: '#FFF4D6' },
+    category: { textColor: '#2F6B3A', bgColor: '#F6E8C8' },
+    saleItem: { textColor: '#2F6B3A', fontScaleGrocery: 1, fontScaleGroups: 1 },
+  },
+  'Saint Patricks Day': {
+    fontFamily: 'Inter',
+    backgroundColor: '#FFFFFF',
+    companyNameColor: '#0B6E4F',
+    dateTextColor:   '#25A86B',
+    saleBubble: { textColor: '#FFFFFF', bgColor: '#0B6E4F', style: 'badge' },
+    featured: { textColor: '#0B6E4F', bgColor: '#E9F8EF' },
+    category: { textColor: '#0B6E4F', bgColor: '#D8F3DC' },
+    saleItem: { textColor: '#0B6E4F', fontScaleGrocery: 1, fontScaleGroups: 1 },
+  },
+  'Summer Fair': {
+    fontFamily: 'Montserrat',
+    backgroundColor: '#FFFDF2',
+    companyNameColor: '#00897B',
+    dateTextColor:   '#FF9800',
+    saleBubble: { textColor: '#FFFFFF', bgColor: '#FF5722', style: 'pill' },
+    featured: { textColor: '#00695C', bgColor: '#FFF3D6' },
+    category: { textColor: '#00897B', bgColor: '#E0F7F4' },
+    saleItem: { textColor: '#00695C', fontScaleGrocery: 1, fontScaleGroups: 1 },
+  },
+  'Thanksgiving': {
+    fontFamily: 'Lato',
+    backgroundColor: '#FFF9F2',
+    companyNameColor: '#7A3E2E',
+    dateTextColor:   '#D67700',
+    saleBubble: { textColor: '#FFFFFF', bgColor: '#C6471D', style: 'sticker' },
+    featured: { textColor: '#5B3B1E', bgColor: '#FFF0D8' },
+    category: { textColor: '#7A3E2E', bgColor: '#F6E7D6' },
+    saleItem: { textColor: '#5B3B1E', fontScaleGrocery: 1, fontScaleGroups: 1 },
+  },
+  'Valentines Day': {
+    fontFamily: 'Great Vibes',
+    backgroundColor: '#FFF6F9',
+    companyNameColor: '#C2185B',
+    dateTextColor:   '#E91E63',
+    saleBubble: { textColor: '#FFFFFF', bgColor: '#E91E63', style: 'sticker' },
+    featured: { textColor: '#6D0037', bgColor: '#FFE4EC' },
+    category: { textColor: '#C2185B', bgColor: '#FFF1F6' },
+    saleItem: { textColor: '#6D0037', fontScaleGrocery: 1, fontScaleGroups: 1 },
+  },
+  'Wheat Kings Night': {
+    fontFamily: 'Bebas Neue',
+    backgroundColor: '#FFFFFF',
+    companyNameColor: '#000000',
+    dateTextColor:   '#F2B600',
+    saleBubble: { textColor: '#F2B600', bgColor: '#000000', style: 'badge' },
+    featured: { textColor: '#111111', bgColor: '#FFF7D1' },
+    category: { textColor: '#000000', bgColor: '#FFF0B3' },
+    saleItem: { textColor: '#111111', fontScaleGrocery: 1, fontScaleGroups: 1 },
+  },
+  'Winter Festival': {
+    fontFamily: 'Noto Sans',
+    backgroundColor: '#F7FBFF',
+    companyNameColor: '#0D47A1',
+    dateTextColor:   '#42A5F5',
+    saleBubble: { textColor: '#FFFFFF', bgColor: '#1565C0', style: 'badge' },
+    featured: { textColor: '#0D47A1', bgColor: '#E3F2FD' },
+    category: { textColor: '#0D47A1', bgColor: '#EAF3FF' },
+    saleItem: { textColor: '#0D47A1', fontScaleGrocery: 1, fontScaleGroups: 1 },
+  },
 }
 
-/* ----------------- Shared utils ----------------- */
+type PresetKey = keyof typeof PRESETS
+
+/* ======================= Utilities ======================= */
 
 function useOutside(ref: React.RefObject<HTMLElement>, onOutside: ()=>void){
   useEffect(()=>{
@@ -120,7 +217,7 @@ function normalizeHex(v: string){
   return s.toUpperCase()
 }
 
-/* ----------------- Color picker with live preview + revert ----------------- */
+/* ======================= Color Row ======================= */
 
 function ColorRow({label,value,onChange}:{label:string;value:string;onChange:(v:string)=>void}){
   const [open, setOpen] = useState(false)
@@ -220,7 +317,7 @@ function ColorRow({label,value,onChange}:{label:string;value:string;onChange:(v:
   )
 }
 
-/* ----------------- Custom Font Select (combobox/listbox) ----------------- */
+/* ======================= Font Select ======================= */
 
 function FontSelect({
   value,
@@ -308,12 +405,18 @@ function FontSelect({
   )
 }
 
-/* ----------------- Panel ----------------- */
+/* ======================= Panel ======================= */
 
-export default function DesignPanel({ theme, setTheme, toast }:{ theme:Theme; setTheme:(t:Theme)=>void; toast:(m:string)=>void }){
+export default function DesignPanel({
+  theme,
+  setTheme,
+  toast
+}:{ theme:Theme; setTheme:(t:Theme)=>void; toast:(m:string)=>void }){
   const update = (p:(t:Theme)=>Theme)=>{ setTheme(p(theme)); toast('Theme updated') }
-  const reset = ()=>{ setTheme(DEFAULT_THEME); toast('Theme reset to defaults') }
-  const applyPreset = (key:string)=>{ setTheme(PRESETS[key]); toast(`Applied theme: ${key}`) }
+  const applyPreset = (key:PresetKey)=>{ setTheme(PRESETS[key]); toast(`Applied theme: ${key}`) }
+
+  // keep the select controlled; default to "Classic" on page load
+  const [presetValue, setPresetValue] = useState<PresetKey>('Classic')
 
   // also preload selected font to avoid FOUT in the closed control
   useEffect(()=>{
@@ -328,11 +431,19 @@ export default function DesignPanel({ theme, setTheme, toast }:{ theme:Theme; se
     <div className="p-3">
       <div className="mb-3 flex items-center gap-2">
         <label className="text-sm">Preset</label>
-        <select className="border rounded p-1" onChange={(e)=>applyPreset(e.target.value)} defaultValue="">
+        <select
+          className="border rounded p-1"
+          value={presetValue}
+          onChange={(e)=>{
+            const v = e.target.value as PresetKey
+            setPresetValue(v)
+            applyPreset(v)
+          }}
+        >
+          {/* helper option remains (won't be selected initially) */}
           <option value="" disabled>Choose preset…</option>
           {Object.keys(PRESETS).map(k=> <option key={k} value={k}>{k}</option>)}
         </select>
-        <button className="ml-auto text-sm px-3 py-1 rounded bg-neutral-200 hover:bg-neutral-300" onClick={reset}>Reset to defaults</button>
       </div>
 
       <div className="space-y-4">
