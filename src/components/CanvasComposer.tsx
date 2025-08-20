@@ -10,6 +10,7 @@ import type { Theme } from './DesignPanel'
 export const CANVAS_W = 2550
 export const CANVAS_H = 3300
 const MARGIN = 120
+const ROW_SIDE_INSET = 60 // px per side to narrow rows under the header
 
 /** Resolve either media:// or asset:// tokens, or regular URLs */
 function useResolvedUrl(raw: string) {
@@ -368,51 +369,61 @@ export function FeaturedLayer({ items, dateRange, theme }: { items: FeaturedItem
 }
 
 /* ---------- Table metrics & section rendering ---------- */
-
-function sectionMetrics(rowsLen: number, fontScale = 1) {
+function sectionMetrics(rowsLen: number, fontScale = 1, sideInset = ROW_SIDE_INSET) {
   const usable   = 2550 - 2 * MARGIN
   const headerH  = 120
-  const rowHBase = 72
   const maxRows  = 30
 
-  // keep original density scaling, then multiply by caller-provided fontScale
   const densityScale = clamp(maxRows / Math.max(rowsLen, 1), 0.85, 1)
   const scale        = densityScale * fontScale
 
-  const rowH   = rowHBase * scale
-  const fs     = 36 * scale
+  const baseFs  = 36
+  const fs      = baseFs * scale
+  const leading = 1.75
+  const rowH    = fs * leading
+
+  // Rows are narrower than the header:
+  const startX       = MARGIN + sideInset
+  const innerUsable  = usable - 2 * sideInset
+
   const height = headerH + 20 + rowsLen * rowH
 
   const widths = {
-    usable,
-    nameW:  usable * 0.60,
-    sizeW:  usable * 0.15,
-    priceW: usable * 0.25,
+    usable,            // header width
+    startX,            // x position where rows begin
+    nameW:  innerUsable * 0.60,
+    sizeW:  innerUsable * 0.15,
+    priceW: innerUsable * 0.25,
   }
 
   return { headerH, rowH, fs, height, widths }
 }
 
 function TableSection({
-  title, rows, yStart, theme, fontScale = 1
-}: { title: string; rows: Row[]; yStart: number; theme: Theme; fontScale?: number }) {
-  const { headerH, rowH, fs, widths } = sectionMetrics(rows.length, fontScale)
-  const { usable, nameW, sizeW, priceW } = widths
+  title, rows, yStart, theme, fontScale = 1, rowSideInset = ROW_SIDE_INSET
+}: {
+  title: string; rows: Row[]; yStart: number; theme: Theme; fontScale?: number; rowSideInset?: number
+}) {
+  const { headerH, rowH, fs, widths } = sectionMetrics(rows.length, fontScale, rowSideInset)
+  const { usable, startX, nameW, sizeW, priceW } = widths
 
   return (
     <Group y={yStart}>
+      {/* Full-width header bar */}
       <Rect x={MARGIN} y={0} width={usable} height={headerH} fill={theme.category.bgColor} cornerRadius={24} />
       <KText
         x={MARGIN + 24} y={24}
         text={title.toUpperCase()} fontSize={48} fontStyle="700"
         fill={theme.category.textColor} fontFamily={theme.fontFamily}
       />
+
+      {/* Narrower rows */}
       <Group y={headerH + 20}>
         {rows.map((r, i) => (
           <Group key={i} y={i * rowH}>
-            <KText x={MARGIN}              y={0} width={nameW}  text={r.name}  fontSize={fs} fill={theme.saleItem.textColor} fontFamily={theme.fontFamily} />
-            <KText x={MARGIN + nameW}      y={0} width={sizeW}  text={r.size}  fontSize={fs} fill={theme.saleItem.textColor} fontFamily={theme.fontFamily} />
-            <KText x={MARGIN + nameW + sizeW} y={0} width={priceW} text={r.price} fontSize={fs} fill={theme.saleItem.textColor} align="right" fontFamily={theme.fontFamily} />
+            <KText x={startX}               y={0} width={nameW}  text={r.name}  fontSize={fs} fill={theme.saleItem.textColor} fontFamily={theme.fontFamily} />
+            <KText x={startX + nameW}       y={0} width={sizeW}  text={r.size}  fontSize={fs} fill={theme.saleItem.textColor} fontFamily={theme.fontFamily} />
+            <KText x={startX + nameW + sizeW} y={0} width={priceW} text={r.price} fontSize={fs} fill={theme.saleItem.textColor} align="right" fontFamily={theme.fontFamily} />
           </Group>
         ))}
       </Group>
