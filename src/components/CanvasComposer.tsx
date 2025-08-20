@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Layer, Rect, Text as KText, Group, Image as KImage, Line, Circle } from 'react-konva'
 import useImage from 'use-image'
 import { driveImageCandidates } from '../utils/drive'
@@ -178,6 +178,7 @@ function Header({ dateRange, theme }: { dateRange: string; theme: Theme }) {
   );
 }
 
+/** Footer with 75% content width and larger fonts */
 function Footer({ theme }: { theme: Theme }) {
   const t = 'OPEN 9:00 A.M. – 9:00 P.M. • 7 DAYS A WEEK'
   const a = '70 MAIN STREET SOUTH, MINNEDOSA | 204-867-2821'
@@ -189,20 +190,13 @@ function Footer({ theme }: { theme: Theme }) {
   const contentX = (CANVAS_W - contentW) / 2
 
   // Enlarge fonts roughly in proportion to the narrower column (1 / 0.75)
-  const scale = 1.5
+  const scale = 1 / 0.75
   const titleFS = 48 * scale   // ≈ 64
   const addrFS  = 44 * scale   // ≈ 58.7
 
   return (
     <Group y={CANVAS_H - barH}>
-      <Rect
-        x={0}
-        y={0}
-        width={CANVAS_W}
-        height={barH}
-        fill={theme.category.textColor}
-        cornerRadius={40}
-      />
+      <Rect x={0} y={0} width={CANVAS_W} height={barH} fill={theme.category.textColor} cornerRadius={40} />
       <KText
         x={contentX}
         y={40}
@@ -381,7 +375,7 @@ function sectionMetrics(rowsLen: number, fontScale = 1) {
   const rowHBase = 72
   const maxRows  = 30
 
-  // keep original density scaling, then multiply by theme scale
+  // keep original density scaling, then multiply by caller-provided fontScale
   const densityScale = clamp(maxRows / Math.max(rowsLen, 1), 0.85, 1)
   const scale        = densityScale * fontScale
 
@@ -400,10 +394,9 @@ function sectionMetrics(rowsLen: number, fontScale = 1) {
 }
 
 function TableSection({
-  title, rows, yStart, theme
-}: { title: string; rows: Row[]; yStart: number; theme: Theme }) {
-  const scale = (theme as any).saleItem?.fontScale ?? 1
-  const { headerH, rowH, fs, widths } = sectionMetrics(rows.length, scale)
+  title, rows, yStart, theme, fontScale = 1
+}: { title: string; rows: Row[]; yStart: number; theme: Theme; fontScale?: number }) {
+  const { headerH, rowH, fs, widths } = sectionMetrics(rows.length, fontScale)
   const { usable, nameW, sizeW, priceW } = widths
 
   return (
@@ -429,11 +422,12 @@ function TableSection({
 
 /* ---------------- Grocery (image 2) ---------------- */
 export function GroceryLayer({ rows, dateRange, theme }: { rows: Row[]; dateRange: string; theme: Theme }) {
+  const scale = theme.saleItem?.fontScaleGrocery ?? 1
   return (
     <Layer>
       <Rect x={0} y={0} width={CANVAS_W} height={CANVAS_H} fill={theme.backgroundColor} />
       <Header dateRange={dateRange} theme={theme} />
-      <TableSection title="Grocery" rows={rows} yStart={580} theme={theme} />
+      <TableSection title="Grocery" rows={rows} yStart={580} theme={theme} fontScale={scale} />
       <Footer theme={theme} />
     </Layer>
   )
@@ -444,7 +438,7 @@ export function GroupsLayer({
   frozen, meat, produce, dateRange, theme,
 }: { frozen: Row[]; meat: Row[]; produce: Row[]; dateRange: string; theme: Theme }) {
   const top = 580
-  const scale = (theme as any).saleItem?.fontScale ?? 1
+  const scale = theme.saleItem?.fontScaleGroups ?? 1
 
   const frozenM  = sectionMetrics(frozen.length,  scale)
   const meatM    = sectionMetrics(meat.length,    scale)
@@ -460,9 +454,9 @@ export function GroupsLayer({
     <Layer>
       <Rect x={0} y={0} width={CANVAS_W} height={CANVAS_H} fill={theme.backgroundColor} />
       <Header dateRange={dateRange} theme={theme} />
-      <TableSection title="Frozen Foods" rows={frozen}  yStart={yFrozen} theme={theme} />
-      <TableSection title="Meat"         rows={meat}    yStart={yMeat}   theme={theme} />
-      <TableSection title="Produce"      rows={produce} yStart={yProd}   theme={theme} />
+      <TableSection title="Frozen Foods" rows={frozen}  yStart={yFrozen} theme={theme} fontScale={scale} />
+      <TableSection title="Meat"         rows={meat}    yStart={yMeat}   theme={theme} fontScale={scale} />
+      <TableSection title="Produce"      rows={produce} yStart={yProd}   theme={theme} fontScale={scale} />
       <Footer theme={theme} />
     </Layer>
   )

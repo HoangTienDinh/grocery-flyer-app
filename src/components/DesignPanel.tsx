@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { HexColorPicker } from 'react-colorful'
 
 export type BadgeStyle = 'starburst' | 'pill' | 'badge' | 'sticker'
@@ -10,7 +10,8 @@ export type Theme = {
   saleBubble: { textColor: string; bgColor: string; style: BadgeStyle }
   featured:   { textColor: string; bgColor: string }
   category:   { textColor: string; bgColor: string }
-  saleItem:   { textColor: string; fontScale: number }
+  // split row font scales
+  saleItem:   { textColor: string; fontScaleGrocery: number; fontScaleGroups: number }
 }
 
 const FONT_OPTIONS = [
@@ -57,7 +58,7 @@ export const DEFAULT_THEME: Theme = {
   saleBubble: { textColor: '#FFFFFF', bgColor: '#8B1F1F', style: 'starburst' },
   featured:   { textColor: '#000000', bgColor: '#FFEAC7' },
   category:   { textColor: '#8B332A', bgColor: '#EEDFB6' },
-  saleItem:   { textColor: '#000000', fontScale: 1 },
+  saleItem:   { textColor: '#000000', fontScaleGrocery: 1, fontScaleGroups: 1 },
 }
 
 export const PRESETS: Record<string, Theme> = {
@@ -70,7 +71,7 @@ export const PRESETS: Record<string, Theme> = {
     saleBubble: { textColor: '#FFFFFF', bgColor: '#D7263D', style: 'sticker' },
     featured: { textColor: '#FFFFFF', bgColor: '#3A3A3A' },
     category: { textColor: '#FF7A00', bgColor: '#2A2A2A' },
-    saleItem: { textColor: '#EAEAEA', fontScale: 1 },
+    saleItem: { textColor: '#EAEAEA', fontScaleGrocery: 1, fontScaleGroups: 1 },
   },
   'Christmas': {
     fontFamily: 'Noto Sans',
@@ -80,7 +81,7 @@ export const PRESETS: Record<string, Theme> = {
     saleBubble: { textColor: '#FFFFFF', bgColor: '#C62828', style: 'badge' },
     featured: { textColor: '#0E0E0E', bgColor: '#F0FFF5' },
     category: { textColor: '#0E7C3A', bgColor: '#E6F5EB' },
-    saleItem: { textColor: '#0E0E0E', fontScale: 1 },
+    saleItem: { textColor: '#0E0E0E', fontScaleGrocery: 1, fontScaleGroups: 1 },
   },
   'Easter': {
     fontFamily: 'Lato',
@@ -90,7 +91,7 @@ export const PRESETS: Record<string, Theme> = {
     saleBubble: { textColor: '#FFFFFF', bgColor: '#7E57C2', style: 'pill' },
     featured: { textColor: '#2E2E2E', bgColor: '#FFF0F6' },
     category: { textColor: '#26A69A', bgColor: '#E6FFF6' },
-    saleItem: { textColor: '#2E2E2E', fontScale: 1 },
+    saleItem: { textColor: '#2E2E2E', fontScaleGrocery: 1, fontScaleGroups: 1 },
   }
 }
 
@@ -116,7 +117,7 @@ function normalizeHex(v: string){
     s = `#${r}${r}${g}${g}${b}${b}`
   }
   if (/^#([0-9a-f]{6})$/i.test(s)) return s.toUpperCase()
-  return s.toUpperCase() // let picker handle invalid; input shows user text
+  return s.toUpperCase()
 }
 
 /* ----------------- Color picker with live preview + revert ----------------- */
@@ -320,7 +321,8 @@ export default function DesignPanel({ theme, setTheme, toast }:{ theme:Theme; se
     if ((FONT_OPTIONS as readonly string[]).includes(f)) ensureFontCssLoaded(f as FontName)
   }, [theme.fontFamily])
 
-  const salePct = Math.round((theme.saleItem?.fontScale ?? 1) * 100)
+  const salePctGrocery = Math.round((theme.saleItem?.fontScaleGrocery ?? 1) * 100)
+  const salePctGroups  = Math.round((theme.saleItem?.fontScaleGroups  ?? 1) * 100)
 
   return (
     <div className="p-3">
@@ -367,17 +369,6 @@ export default function DesignPanel({ theme, setTheme, toast }:{ theme:Theme; se
           <div className="p-3 space-y-3">
             <ColorRow label="Text color" value={theme.saleBubble.textColor} onChange={(v)=>update(t=>({...t,saleBubble:{...t.saleBubble,textColor:v}}))} />
             <ColorRow label="Background color" value={theme.saleBubble.bgColor} onChange={(v)=>update(t=>({...t,saleBubble:{...t.saleBubble,bgColor:v}}))} />
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Style</span>
-              <div className="flex gap-2">
-                {(['starburst','pill','badge','sticker'] as const).map(s=>(
-                  <label key={s} className="text-xs border rounded px-2 py-1 cursor-pointer">
-                    <input type="radio" name="badgeStyle" className="mr-1" checked={theme.saleBubble.style===s} onChange={()=>update(t=>({...t,saleBubble:{...t.saleBubble, style:s}}))}/>
-                    {s}
-                  </label>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
 
@@ -397,22 +388,41 @@ export default function DesignPanel({ theme, setTheme, toast }:{ theme:Theme; se
           </div>
         </div>
 
+        {/* Split controls */}
         <div className="border rounded">
           <div className="bg-neutral-100 px-3 py-2 font-semibold rounded-t">Sale Item</div>
           <div className="p-3 space-y-3">
             <ColorRow label="Text color" value={theme.saleItem.textColor} onChange={(v)=>update(t=>({...t,saleItem:{...t.saleItem,textColor:v}}))} />
+
+            {/* Grocery slider */}
             <div className="flex items-center justify-between">
-              <span className="text-sm">Row font size</span>
+              <span className="text-sm">Image 2 (Grocery) row font size</span>
               <div className="flex items-center gap-2">
                 <input
                   type="range" min={80} max={140} step={5}
-                  value={salePct}
+                  value={salePctGrocery}
                   onChange={e=>{
                     const v = Number(e.target.value)/100
-                    update(t=>({...t, saleItem:{...t.saleItem, fontScale:v}}))
+                    update(t=>({...t, saleItem:{...t.saleItem, fontScaleGrocery:v}}))
                   }}
                 />
-                <span className="text-xs w-10 text-right">{salePct}%</span>
+                <span className="text-xs w-10 text-right">{salePctGrocery}%</span>
+              </div>
+            </div>
+
+            {/* Groups slider */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Image 3 (Groups) row font size</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="range" min={80} max={140} step={5}
+                  value={salePctGroups}
+                  onChange={e=>{
+                    const v = Number(e.target.value)/100
+                    update(t=>({...t, saleItem:{...t.saleItem, fontScaleGroups:v}}))
+                  }}
+                />
+                <span className="text-xs w-10 text-right">{salePctGroups}%</span>
               </div>
             </div>
           </div>
