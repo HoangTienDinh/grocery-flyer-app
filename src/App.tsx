@@ -141,12 +141,44 @@ export default function App(){
     const name = tab==='featured'?'image1_featured.png':tab==='grocery'?'image2_grocery.png':'image3_groups.png'
     const uri = s.toDataURL({ pixelRatio: 2 }); const a=document.createElement('a'); a.href=uri; a.download=name; a.click()
   }
-  const downloadAll = async ()=>{
-    const old=tab; const zip=new JSZip()
-    async function cap(t:Tab,n:string){ setTab(t); await new Promise(r=>setTimeout(r,120)); const s=stageRef.current; if(!s) return; const d=s.toDataURL({pixelRatio:2}); zip.file(n,d.split(',')[1],{base64:true}) }
-    await cap('featured','image1_featured.png'); await cap('grocery','image2_grocery.png'); await cap('groups','image3_groups.png'); setTab(old)
-    const blob=await zip.generateAsync({type:'blob'}); saveAs(blob,'kims-flyer-images.zip')
-  }
+
+  // const downloadAll = async ()=>{
+  //   const old=tab; const zip=new JSZip()
+  //   async function cap(t:Tab,n:string){ setTab(t); await new Promise(r=>setTimeout(r,120)); const s=stageRef.current; if(!s) return; const d=s.toDataURL({pixelRatio:2}); zip.file(n,d.split(',')[1],{base64:true}) }
+  //   await cap('featured','image1_featured.png'); await cap('grocery','image2_grocery.png'); await cap('groups','image3_groups.png'); setTab(old)
+  //   const blob=await zip.generateAsync({type:'blob'}); saveAs(blob,'kims-flyer-images.zip')
+  // }
+
+  const downloadAll = async () => {
+    const old = tab;
+
+    // [tabName, filename]
+    const shots: Array<[Tab, string]> = [
+      ['featured', 'image1_featured.png'],
+      ['grocery',  'image2_grocery.png'],
+      ['groups',   'image3_groups.png'],
+    ];
+
+    for (const [t, name] of shots) {
+      setTab(t);
+      // give Konva a tick to render
+      await new Promise(r => setTimeout(r, 140));
+      const s = stageRef.current;
+      if (!s) continue;
+
+      // ensure latest draw before capture
+      s.batchDraw?.();
+
+      const dataUrl = s.toDataURL({ pixelRatio: 3 });
+      const blob = await (await fetch(dataUrl)).blob(); // convert dataURL → Blob
+      saveAs(blob, name);
+
+      // tiny gap so browsers don’t coalesce downloads
+      await new Promise(r => setTimeout(r, 60));
+    }
+
+    setTab(old);
+  };
 
   const EditorPane = (
     <div className="min-h-full flex flex-col">
@@ -326,7 +358,7 @@ export default function App(){
         Download PNG
       </button>
       <button onClick={downloadAll} className="px-3 py-1 rounded bg-green-600 text-white">
-        Download All (ZIP)
+        Download All
       </button>
     </div>
   </div>
