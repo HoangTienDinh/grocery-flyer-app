@@ -81,8 +81,8 @@ function NetworkImage({
 
 function Header({ dateRange, theme }: { dateRange: string; theme: Theme }) {
   // Colors taken from the theme (alternating stripes + scallops)
-  const stripeA = theme.category.textColor; // dark (e.g., green/red)
-  const stripeB = theme.category.bgColor;   // light (e.g., beige)
+  const stripeA = theme.category.textColor; // dark (e.g. green/red)
+  const stripeB = theme.category.bgColor;   // light (e.g. beige)
 
   // Awning geometry
   const scallopR   = 80;              // half-circle radius

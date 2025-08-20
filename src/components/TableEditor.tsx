@@ -6,7 +6,7 @@ type Props = {
   rows: Row[]
   setRows: React.Dispatch<React.SetStateAction<Row[]>>
   onFocusAny?: () => void
-  /** Optional: hide the “Add row” button once this many rows exist (e.g., 9 for Featured) */
+  /** Optional: hide the “Add row” button once this many rows exist (e.g. 9 for Featured) */
   maxRows?: number
 }
 
@@ -97,7 +97,7 @@ export default function TableEditor({ rows, setRows, onFocusAny, maxRows }: Prop
                     onFocus={onFocus}
                     onChange={e => update(i, 'size', e.target.value)}
                     title={r.size}
-                    placeholder="e.g., 750ml"
+                    placeholder="e.g. 750ml"
                   />
                 </td>
 
