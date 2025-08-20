@@ -181,11 +181,48 @@ function Header({ dateRange, theme }: { dateRange: string; theme: Theme }) {
 function Footer({ theme }: { theme: Theme }) {
   const t = 'OPEN 9:00 A.M. – 9:00 P.M. • 7 DAYS A WEEK'
   const a = '70 MAIN STREET SOUTH, MINNEDOSA | 204-867-2821'
+
+  const barH = 220
+
+  // Use 75% of the canvas width for the text block, centered
+  const contentW = CANVAS_W * 0.75
+  const contentX = (CANVAS_W - contentW) / 2
+
+  // Enlarge fonts roughly in proportion to the narrower column (1 / 0.75)
+  const scale = 1.5
+  const titleFS = 48 * scale   // ≈ 64
+  const addrFS  = 44 * scale   // ≈ 58.7
+
   return (
-    <Group y={CANVAS_H - 220}>
-      <Rect x={0} y={0} width={CANVAS_W} height={220} fill={theme.category.textColor} cornerRadius={40} />
-      <KText x={0} y={40} width={CANVAS_W} align="center" text={t} fontSize={48} fill="#FFF" fontFamily={theme.fontFamily} />
-      <KText x={0} y={110} width={CANVAS_W} align="center" text={a} fontSize={44} fill="#E9F5EE" fontFamily={theme.fontFamily} />
+    <Group y={CANVAS_H - barH}>
+      <Rect
+        x={0}
+        y={0}
+        width={CANVAS_W}
+        height={barH}
+        fill={theme.category.textColor}
+        cornerRadius={40}
+      />
+      <KText
+        x={contentX}
+        y={40}
+        width={contentW}
+        align="center"
+        text={t}
+        fontSize={titleFS}
+        fill="#FFF"
+        fontFamily={theme.fontFamily}
+      />
+      <KText
+        x={contentX}
+        y={110}
+        width={contentW}
+        align="center"
+        text={a}
+        fontSize={addrFS}
+        fill="#E9F5EE"
+        fontFamily={theme.fontFamily}
+      />
     </Group>
   )
 }
