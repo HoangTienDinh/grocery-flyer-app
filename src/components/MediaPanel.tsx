@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { addFiles, listMedia, type MediaItem } from '../utils/media'
+import { addFiles, listMedia, type MediaItem, resolveTokenToObjectUrl } from '../utils/media'
 
 /* ---------- build-time manifest of repo images in src/assets ---------- */
 const ASSET_MANIFEST: Record<string, string> =
@@ -8,7 +8,6 @@ const ASSET_MANIFEST: Record<string, string> =
 type MediaWithUrl = MediaItem & { url?: string }  // allow url on items from assets
 
 // Breakpoint-based columns so the left pane gets 2 / 3 / 4 columns.
-// Defaults tuned for 13" screens: 4 cols from ~760px+ container width.
 function useBreakpointColumns(threeColMin = 560, fourColMin = 760) {
   const ref = useRef<HTMLDivElement | null>(null)
   const [cols, setCols] = useState(2)
@@ -28,9 +27,56 @@ function useBreakpointColumns(threeColMin = 560, fourColMin = 760) {
   return { ref, cols }
 }
 
-/* Use the url we attach on asset-backed items */
-function thumbUrlFor(item: MediaWithUrl): string | undefined {
-  return item.url
+/* ---------- ID → token helper: handles several shapes safely ---------- */
+function idToToken(id: string | undefined): string {
+  if (!id) return ''
+  if (id.startsWith('asset://') || id.startsWith('media://')) return id
+  if (id.startsWith('asset:')) return `asset://${id.slice('asset:'.length)}`
+  if (id.startsWith('media:')) return `media://${id.slice('media:'.length)}`
+  // bare UUID? treat as media
+  if (/^[0-9a-f-]{32,36}$/i.test(id)) return `media://${id}`
+  return ''
+}
+
+/* ---------- Resolve a preview URL for any item ---------- */
+function useThumbUrl(item: MediaWithUrl) {
+  const [url, setUrl] = useState<string | undefined>(item.url)
+
+  useEffect(() => {
+    let alive = true
+    let toRevoke: string | null = null
+
+    async function run() {
+      // 1) Bundled assets already include a build URL
+      if (item.url) { setUrl(item.url); return }
+
+      // 2) Try manifest lookup (asset without url – defensive)
+      if (item.id?.startsWith('asset:')) {
+        const name = item.id.slice('asset:'.length)
+        const path = Object.keys(ASSET_MANIFEST).find(p => p.endsWith('/' + name))
+        if (path) { setUrl((ASSET_MANIFEST as any)[path]); return }
+      }
+
+      // 3) Uploaded file: resolve token → blob/object URL
+      const token = idToToken(item.id)
+      if (token) {
+        const u = await resolveTokenToObjectUrl(token)
+        if (!alive) return
+        setUrl(u || undefined)
+        if (u && u.startsWith('blob:')) toRevoke = u
+      } else {
+        setUrl(undefined)
+      }
+    }
+
+    run()
+    return () => {
+      alive = false
+      if (toRevoke) URL.revokeObjectURL(toRevoke)
+    }
+  }, [item.id, item.url])
+
+  return url
 }
 
 function PlaceholderThumb() {
@@ -54,26 +100,43 @@ function PlaceholderThumb() {
   )
 }
 
+function MediaCard({ item }: { item: MediaWithUrl }) {
+  const thumb = useThumbUrl(item)
+  return (
+    <article className="relative rounded border bg-white p-3">
+      <div
+        className="relative rounded border bg-neutral-100 overflow-hidden"
+        style={{ aspectRatio: '4 / 3', minHeight: 120 }}
+      >
+        {thumb ? (
+          <img src={thumb} alt={item.name} className="w-full h-full object-contain" loading="lazy" />
+        ) : (
+          <PlaceholderThumb />
+        )}
+      </div>
+      <div className="mt-2 text-sm truncate" title={item.name}>
+        {item.name}
+      </div>
+    </article>
+  )
+}
+
 export default function MediaPanel({ toast }: { toast: (m: string) => void }) {
   const [items, setItems] = useState<MediaItem[]>([])
   const [q, setQ] = useState('')
 
-  // Build “bundled assets” from the repo at build time
+  // Build bundled assets (with URLs) at build time
   const bundledAssets: MediaWithUrl[] = useMemo(() => {
     return Object.entries(ASSET_MANIFEST).map(([path, url]) => {
       const name = path.split('/').pop() || 'asset'
-      return {
-        id: `asset:${name}`,
-        name,
-        url,
-      }
+      return { id: `asset:${name}`, name, url }
     })
   }, [])
 
   const load = () => listMedia().then(setItems)
   useEffect(() => { load() }, [])
 
-  // Merge: repo assets first (read-only), then user uploads (editable)
+  // Merge: assets first, then user uploads
   const library: MediaWithUrl[] = useMemo(
     () => [...bundledAssets, ...(items as MediaWithUrl[])],
     [bundledAssets, items]
@@ -84,18 +147,16 @@ export default function MediaPanel({ toast }: { toast: (m: string) => void }) {
     [library, q]
   )
 
-  // 2–4 responsive columns tuned for your pane
   const { ref: gridRef, cols } = useBreakpointColumns(560, 760)
 
   // ---- Browse (PNG/JPG only) ----
   const onUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
-    // Filter to .png/.jpg/.jpeg just in case (browser accept should already guard)
     const allowed = Array.from(files).filter(f =>
       /image\/png|image\/jpeg/i.test(f.type) || /\.(png|jpe?g)$/i.test(f.name)
     )
     if (allowed.length === 0) { toast('Only PNG or JPG are allowed'); return }
-    await addFiles(allowed as unknown as FileList) // util supports FileList or array-like
+    await addFiles(allowed as unknown as FileList)
     await load()
     toast(allowed.length === 1 ? 'Image uploaded' : `Uploaded ${allowed.length} images`)
   }
@@ -108,12 +169,11 @@ export default function MediaPanel({ toast }: { toast: (m: string) => void }) {
           <input
             type="file"
             multiple
-            // Strict to PNG/JPG
             accept="image/png,image/jpeg"
             onChange={(e) => onUpload(e.target.files)}
             className="hidden"
           />
-          <span className="px-2.5 py-1 rounded bg-neutral-200 hover:bg-neutral-300 cursor-pointer text-xs sm:text-sm">
+        <span className="px-2.5 py-1 rounded bg-neutral-200 hover:bg-neutral-300 cursor-pointer text-xs sm:text-sm">
             Upload
           </span>
         </label>
@@ -133,32 +193,7 @@ export default function MediaPanel({ toast }: { toast: (m: string) => void }) {
         className="grid gap-3"
         style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
       >
-        {filtered.map((it) => {
-          const thumb = thumbUrlFor(it)
-          return (
-            <article key={it.id} className="relative rounded border bg-white p-3">
-              <div
-                className="relative rounded border bg-neutral-100 overflow-hidden"
-                style={{ aspectRatio: '4 / 3', minHeight: 120 }}
-              >
-                {thumb ? (
-                  <img
-                    src={thumb}
-                    alt={it.name}
-                    className="w-full h-full object-contain"
-                    loading="lazy"
-                  />
-                ) : (
-                  <PlaceholderThumb />
-                )}
-              </div>
-
-              <div className="mt-2 text-sm truncate" title={it.name}>
-                {it.name}
-              </div>
-            </article>
-          )
-        })}
+        {filtered.map((it) => <MediaCard key={it.id} item={it} />)}
 
         {filtered.length === 0 && (
           <div className="text-sm text-neutral-500">No images yet.</div>
