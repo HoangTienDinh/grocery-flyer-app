@@ -93,6 +93,15 @@ function useFloating(anchorEl: HTMLElement | null, offset = 6, maxMenuHeight = 3
   return pos
 }
 
+/* ---------- Filename → token helpers ---------- */
+function stripPathAndLower(s: string) {
+  const justFile = s.replace(/^.*[\\/]/, '')
+  return justFile.toLowerCase().trim()
+}
+function noExt(nameLower: string) {
+  return nameLower.replace(/\.[a-z0-9]+$/i, '')
+}
+
 /* -------------------- Media Autocomplete (tokens only) -------------------- */
 function MediaAutocomplete({ value, onPick }: { value: string; onPick: (token: string) => void }) {
   const [open, setOpen] = useState(false)
@@ -339,6 +348,49 @@ export default function FeaturedTable({
   }
 
   const canAddMore = items.length < 9
+
+  /* -------- Auto-map spreadsheet filenames to tokens -------- */
+  const [nameToToken, setNameToToken] = useState<Map<string, string>>(new Map())
+
+  useEffect(() => {
+    // Build the filename → token map from both sources
+    const buildMap = async () => {
+      const [uploaded, assets] = await Promise.all([listMedia(), Promise.resolve(listBundledAssets())])
+      const all = [...assets, ...uploaded]
+      const map = new Map<string, string>()
+      for (const it of all) {
+        const token = tokenFor(it.id)
+        const n1 = stripPathAndLower(it.name)
+        const n2 = noExt(n1)
+        map.set(n1, token)
+        if (!map.has(n2)) map.set(n2, token)
+      }
+      setNameToToken(map)
+    }
+    buildMap()
+  }, [])
+
+  useEffect(() => {
+    if (!nameToToken.size || items.length === 0) return
+    let changed = false
+    const next = items.map((it) => {
+      const src = (it.imageUrl || '').trim()
+      // Already a token → leave as-is
+      if (!src || src.startsWith('asset://') || src.startsWith('media://')) return it
+
+      const base = stripPathAndLower(src)
+      const key1 = base
+      const key2 = noExt(base)
+
+      const token = nameToToken.get(key1) || nameToToken.get(key2)
+      if (token && token !== it.imageUrl) {
+        changed = true
+        return { ...it, imageUrl: token }
+      }
+      return it
+    })
+    if (changed) setItems(next)
+  }, [items, nameToToken, setItems])
 
   return (
     <div className="overflow-x-auto">

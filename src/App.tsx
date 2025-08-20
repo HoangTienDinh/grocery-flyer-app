@@ -13,6 +13,7 @@ import { Stage } from 'react-konva'
 import DesignPanel, { DEFAULT_THEME, type Theme } from './components/DesignPanel'
 import MediaPanel from './components/MediaPanel'
 import Toast from './components/Toast'
+import EXAMPLE_XLSX from './assets/flyer_template.xlsx?url'
 
 type Tab = 'featured' | 'grocery' | 'groups'
 type LeftTab = 'editor' | 'design' | 'media'
@@ -193,13 +194,33 @@ export default function App() {
     setTab(old)
   }
 
-  const EditorPane = (
-    <div className="min-h-full flex flex-col">
-      <div className="p-4 border-b">
-        <div className="text-sm text-neutral-600 mb-2">Upload .xlsx</div>
-        <input type="file" accept=".xlsx" onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f) }} />
-        {uploadError && <div className="text-sm text-red-600 mt-2">{uploadError}</div>}
+const EditorPane = (
+  <div className="min-h-full flex flex-col">
+    <div className="p-4 border-b">
+      <div className="text-sm text-neutral-600 mb-2">Upload .xlsx</div>
+
+      <input
+        type="file"
+        accept=".xlsx"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f) }}
+      />
+
+      {/* helper link right under the Browse input */}
+      <div className="mt-2 text-xs text-neutral-500">
+        Need a template?{" "}
+        <a
+          href={EXAMPLE_XLSX}
+          download="kims-flyer-example.xlsx"
+          className="text-blue-700 hover:text-blue-800 underline"
+        >
+          Download example .xlsx
+        </a>
       </div>
+
+      {uploadError && (
+        <div className="text-sm text-red-600 mt-2">{uploadError}</div>
+      )}
+    </div>
       <AccordionSection title="Dates" defaultOpen>
         <div className="grid grid-cols-2 gap-3 pb-2">
           <div>
