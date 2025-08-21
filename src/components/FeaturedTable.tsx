@@ -18,7 +18,6 @@ const INDEX_COL_W = 24
 const DRAG_COL_W  = 24
 const REMOVE_COL_W = 48
 
-/* -------------------- Floating dropdown infra -------------------- */
 type FloatingPos =
   | { kind: 'bottom'; left: number; top: number; width: number; maxHeight: number }
   | { kind: 'top';    left: number; bottom: number; width: number; maxHeight: number }

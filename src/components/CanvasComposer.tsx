@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Layer, Rect, Text as KText, Group, Image as KImage, Line, Circle } from 'react-konva'
 import useImage from 'use-image'
 import { driveImageCandidates } from '../utils/drive'
@@ -45,10 +45,6 @@ function useResolvedUrl(raw: string) {
   return url
 }
 
-/**
- * Konva Image with “object-fit: contain” behavior.
- * It never stretches; it scales uniformly to fit inside (w x h) and centers itself.
- */
 function NetworkImage({
   url, x, y, w, h, padding = 0,
 }: { url: string; x: number; y: number; w: number; h: number; padding?: number }) {
@@ -179,25 +175,26 @@ function Header({ dateRange, theme }: { dateRange: string; theme: Theme }) {
   );
 }
 
-/** Footer with 75% content width and larger fonts */
 function Footer({ theme }: { theme: Theme }) {
   const t = 'OPEN 9:00 A.M. – 9:00 P.M. • 7 DAYS A WEEK'
   const a = '70 MAIN STREET SOUTH, MINNEDOSA | 204-867-2821'
-
   const barH = 220
-
-  // Use 75% of the canvas width for the text block, centered
   const contentW = CANVAS_W * 0.75
   const contentX = (CANVAS_W - contentW) / 2
-
-  // Enlarge fonts roughly in proportion to the narrower column (1 / 0.75)
   const scale = 1 / 0.75
   const titleFS = 48 * scale   // ≈ 64
   const addrFS  = 44 * scale   // ≈ 58.7
 
   return (
     <Group y={CANVAS_H - barH}>
-      <Rect x={0} y={0} width={CANVAS_W} height={barH} fill={theme.category.textColor} cornerRadius={40} />
+      <Rect 
+        x={0} 
+        y={0} 
+        width={CANVAS_W} 
+        height={barH} 
+        fill={theme.category.textColor} 
+        cornerRadius={[40, 40, 0, 0]}
+      />
       <KText
         x={contentX}
         y={40}

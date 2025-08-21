@@ -1,22 +1,10 @@
 import { get, set, del } from 'idb-keyval'
-import JSZip from 'jszip'
 
-/* ============================================================
-   Types
-============================================================ */
 export type MediaItem = { id: string; name: string; type: string; size: number; createdAt: number }
 
-/* ============================================================
-   IndexedDB keys
-============================================================ */
 const INDEX_KEY = 'media:index'
 const ITEM_KEY = (id: string) => `media:item:${id}`
 
-/* ============================================================
-   Bundled repo assets (build-time)
-   Any images you put in src/assets/*.{png,jpg,jpeg,webp,gif,svg}
-   will be available via token: asset://<filename.ext>
-============================================================ */
 const ASSET_MANIFEST: Record<string, string> =
   import.meta.glob('../assets/*.{png,jpg,jpeg,webp,gif,svg}', { eager: true, as: 'url' }) as any
 
@@ -30,7 +18,6 @@ function assetUrlForName(name: string): string | undefined {
   return key ? ASSET_MANIFEST[key] : undefined
 }
 
-/** Return a virtual list of bundled assets as MediaItem objects (read-only). */
 export function listBundledAssets(): MediaItem[] {
   const now = 0
   return Object.keys(ASSET_MANIFEST).map((path) => {
@@ -45,9 +32,6 @@ export function listBundledAssets(): MediaItem[] {
   })
 }
 
-/* ============================================================
-   Public API — IndexedDB (user-uploaded)
-============================================================ */
 export async function listMedia(): Promise<MediaItem[]> {
   const idx = (await get(INDEX_KEY)) as MediaItem[] | undefined
   return idx || []
@@ -120,43 +104,4 @@ export async function resolveTokenToObjectUrl(token: string): Promise<string | n
   const b = await getBlob(id)
   if (!b) return null
   return URL.createObjectURL(b)
-}
-
-/* ============================================================
-   Export / Import (IndexedDB items only)
-============================================================ */
-export async function exportZip(selectedIds?: string[]): Promise<Blob> {
-  const idx = await listMedia()
-  const chosen = selectedIds?.length ? idx.filter(i => selectedIds.includes(i.id)) : idx
-  const zip = new JSZip()
-  const index: MediaItem[] = []
-  for (const it of chosen) {
-    const blob = await getBlob(it.id)
-    if (!blob) continue
-    zip.file(`media/${it.id}-${it.name}`, blob)
-    index.push(it)
-  }
-  zip.file('index.json', JSON.stringify(index, null, 2))
-  return await zip.generateAsync({ type: 'blob' })
-}
-
-export async function importZip(file: File): Promise<number> {
-  const zip = await JSZip.loadAsync(file)
-  const files = Object.values(zip.files)
-  let count = 0
-  const idx = await listMedia()
-  for (const f of files) {
-    if (f.name === 'index.json') continue
-    if (!f.name.startsWith('media/')) continue
-    const blob = await f.async('blob')
-    const [, base] = f.name.split('/', 2)
-    const dash = base.indexOf('-')
-    const id = crypto.randomUUID()
-    const name = dash > 0 ? base.slice(dash + 1) : base
-    await set(ITEM_KEY(id), blob)
-    idx.push({ id, name, type: blob.type || 'image/*', size: blob.size, createdAt: Date.now() })
-    count++
-  }
-  await set(INDEX_KEY, idx)
-  return count
 }

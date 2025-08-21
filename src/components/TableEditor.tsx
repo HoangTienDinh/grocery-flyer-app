@@ -6,7 +6,6 @@ type Props = {
   rows: Row[]
   setRows: React.Dispatch<React.SetStateAction<Row[]>>
   onFocusAny?: () => void
-  /** Optional: hide the “Add row” button once this many rows exist (e.g. 9 for Featured) */
   maxRows?: number
 }
 
