@@ -271,16 +271,31 @@ function PriceBadge({ x, y, price, theme }: { x: number; y: number; price: strin
 }
 
 export function FeaturedLayer({ items, dateRange, theme }: { items: FeaturedItem[]; dateRange: string; theme: Theme }) {
-  const top = 700
-  const col = 3
-  const row = 3
-  const gx = 70
-  const gy = 90
+  // --- Layout knobs ---
+  const HEADER_TO_GRID_PAD = 40;   // gap below header underline
+  const FOOTER_TO_GRID_PAD = 60;   // gap above footer
+  const FOOTER_H          = 220;   // keep in sync with Footer.barH
 
-  const cardW = (CANVAS_W - 2 * MARGIN - (col - 1) * gx) / col
-  const cardH = (CANVAS_H - top - 420 - (row - 1) * gy) / row
+  // Header ends at its underline (≈560px from top in your current Header)
+  const headerUnderlineBottom = 560;
+  const top = headerUnderlineBottom + HEADER_TO_GRID_PAD;
 
-  const badgeMarks: Array<{ x: number; y: number; price: string }> = []
+  const col = 3;
+  const row = 3;
+  const gx  = 70;  // horizontal gutter
+  const gy  = 90;  // vertical gutter
+
+  // Available height = canvas - header - footer - padding
+  const availableH = CANVAS_H - top - (FOOTER_H + FOOTER_TO_GRID_PAD);
+  const cardH = (availableH - (row - 1) * gy) / row;
+  const cardW = (CANVAS_W - 2 * MARGIN - (col - 1) * gx) / col;
+
+  // Fixed band height so the image gets everything else
+  const BAND_H   = 120;   // text band height (name + size)
+  const GAP_AB   = 16;    // gap between image and band
+  const CARD_PAD = 26;    // inner card top/bottom padding
+
+  const badgeMarks: Array<{ x: number; y: number; price: string }> = [];
 
   return (
     <>
@@ -289,29 +304,28 @@ export function FeaturedLayer({ items, dateRange, theme }: { items: FeaturedItem
         <Header dateRange={dateRange} theme={theme} />
 
         {items.map((it, i) => {
-          const r = Math.floor(i / col)
-          const c = i % col
-          const x = MARGIN + c * (cardW + gx)
-          const y = top + r * (cardH + gy)
+          const r = Math.floor(i / col);
+          const c = i % col;
+          const x = MARGIN + c * (cardW + gx);
+          const y = top + r * (cardH + gy);
 
-          const topPad = 26
+          // Image box uses all remaining space
+          const imgBox = {
+            x: 40,
+            y: CARD_PAD,
+            w: cardW - 80,
+            h: cardH - CARD_PAD - GAP_AB - BAND_H - CARD_PAD,
+            pad: 8,
+          };
 
-          // image box ~62% of card height
-          const imgBox = { x: 40, y: topPad, w: cardW - 80, h: cardH * 0.62, pad: 10 }
+          const bandX = imgBox.x + 12;
+          const bandW = imgBox.w - 24;
+          const bandY = imgBox.y + imgBox.h + GAP_AB;
 
-          // text band (centered)
-          const bandMargin = 12
-          const bandX = imgBox.x + bandMargin
-          const bandW = imgBox.w - bandMargin * 2
-
-          const gap = 16
-          const bandH = Math.max(110, cardH - (topPad + imgBox.h + gap + topPad))
-          const bandY = imgBox.y + imgBox.h + gap
-
-          // badge at image top-right, slightly outward
-          const badgeCenterX = x + imgBox.x + imgBox.w - 10
-          const badgeCenterY = y + imgBox.y + 18
-          badgeMarks.push({ x: badgeCenterX, y: badgeCenterY, price: it.price || '$0.00' })
+          // price badge position
+          const badgeCenterX = x + imgBox.x + imgBox.w - 10;
+          const badgeCenterY = y + imgBox.y + 18;
+          badgeMarks.push({ x: badgeCenterX, y: badgeCenterY, price: it.price || '$0.00' });
 
           return (
             <Group key={i} x={x} y={y}>
@@ -322,47 +336,51 @@ export function FeaturedLayer({ items, dateRange, theme }: { items: FeaturedItem
               <NetworkImage url={it.imageUrl} x={imgBox.x} y={imgBox.y} w={imgBox.w} h={imgBox.h} padding={imgBox.pad} />
 
               {/* Name/Size band */}
-              <Rect x={bandX} y={bandY} width={bandW} height={bandH} cornerRadius={16} fill={theme.featured.bgColor} />
-              <Group x={bandX} y={bandY} width={bandW} height={bandH}>
+              <Rect x={bandX} y={bandY} width={bandW} height={BAND_H} cornerRadius={16} fill={theme.featured.bgColor} />
+              <Group x={bandX} y={bandY} width={bandW} height={BAND_H}>
                 {(() => {
-                  const nameFont = 46
-                  const sizeFont = 34
-                  const lineGap = 10
-                  const totalTextHeight = nameFont + sizeFont + lineGap
-                  const startY = (bandH - totalTextHeight) / 2
-
+                  const nameFont = 50;
+                  const sizeFont = 35;
+                  const lineGap  = 10;
+                  const totalTextHeight = nameFont + sizeFont + lineGap;
+                  const startY = (BAND_H - totalTextHeight) / 2;
                   return (
                     <>
                       <KText
                         x={0} y={startY} width={bandW}
                         text={it.name || 'New Item'}
-                        fontSize={nameFont} fill={theme.featured.textColor}
-                        align="center" verticalAlign="middle" fontFamily={theme.fontFamily}
+                        fontSize={nameFont}
+                        fill={theme.featured.textColor}
+                        align="center" verticalAlign="middle"
+                        fontFamily={theme.fontFamily}
                       />
                       <KText
                         x={0} y={startY + nameFont + lineGap} width={bandW}
-                        text={it.size || ''} fontSize={sizeFont}
-                        fill={theme.featured.textColor} align="center" verticalAlign="middle" fontFamily={theme.fontFamily}
+                        text={it.size || ''}
+                        fontSize={sizeFont}
+                        fill={theme.featured.textColor}
+                        align="center" verticalAlign="middle"
+                        fontFamily={theme.fontFamily}
                       />
                     </>
-                  )
+                  );
                 })()}
               </Group>
             </Group>
-          )
+          );
         })}
 
         <Footer theme={theme} />
       </Layer>
 
-      {/* Draw all badges on a separate top layer */}
+      {/* badges on top */}
       <Layer listening={false}>
         {badgeMarks.map((b, idx) => (
           <PriceBadge key={idx} x={b.x} y={b.y} price={b.price} theme={theme} />
         ))}
       </Layer>
     </>
-  )
+  );
 }
 
 /* ---------- Table metrics & section rendering ---------- */
