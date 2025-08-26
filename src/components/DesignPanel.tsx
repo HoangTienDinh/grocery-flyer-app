@@ -404,6 +404,43 @@ function FontSelect({
     </div>
   )
 }
+const BADGE_STYLES: readonly BadgeStyle[] = ['starburst', 'pill', 'badge', 'sticker'] as const;
+
+function titleCase(s: string){ return s.replace(/\b\w/g, c => c.toUpperCase()) }
+
+function BadgeStyleSelect({
+  value,
+  onChange,
+}: {
+  value: BadgeStyle;
+  onChange: (v: BadgeStyle) => void;
+}) {
+  return (
+    <div role="radiogroup" className="grid grid-cols-4 gap-2">
+      {BADGE_STYLES.map((s) => {
+        const active = value === s;
+        return (
+          <button
+            key={s}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(s)}
+            className={[
+              "px-2 py-1 rounded border text-sm transition",
+              active
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white hover:bg-neutral-50"
+            ].join(" ")}
+            title={titleCase(s)}
+          >
+            {titleCase(s)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 /* ======================= Panel ======================= */
 
@@ -480,6 +517,13 @@ export default function DesignPanel({
           <div className="p-3 space-y-3">
             <ColorRow label="Text color" value={theme.saleBubble.textColor} onChange={(v)=>update(t=>({...t,saleBubble:{...t.saleBubble,textColor:v}}))} />
             <ColorRow label="Background color" value={theme.saleBubble.bgColor} onChange={(v)=>update(t=>({...t,saleBubble:{...t.saleBubble,bgColor:v}}))} />
+            <div className="flex items-start justify-between gap-3">
+              <span className="text-sm mt-1">Style</span>
+              <BadgeStyleSelect
+                value={theme.saleBubble.style}
+                onChange={(s)=>update(t=>({...t, saleBubble:{...t.saleBubble, style:s}}))}
+              />
+            </div>
           </div>
         </div>
 
