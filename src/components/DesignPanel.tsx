@@ -510,7 +510,7 @@ export default function DesignPanel({
               <span className="text-sm">Image 2 (Grocery) row font size</span>
               <div className="flex items-center gap-2">
                 <input
-                  type="range" min={80} max={140} step={5}
+                  type="range" min={80} max={200} step={5}
                   value={salePctGrocery}
                   onChange={e=>{
                     const v = Number(e.target.value)/100
@@ -526,7 +526,7 @@ export default function DesignPanel({
               <span className="text-sm">Image 3 (Groups) row font size</span>
               <div className="flex items-center gap-2">
                 <input
-                  type="range" min={80} max={140} step={5}
+                  type="range" min={80} max={200} step={5}
                   value={salePctGroups}
                   onChange={e=>{
                     const v = Number(e.target.value)/100
