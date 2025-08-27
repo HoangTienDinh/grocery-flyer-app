@@ -234,40 +234,104 @@ function ovalBurstPoints(W:number, H:number, depth:number, spikes:number){
   }
   return pts
 }
+// Returns the largest font size that fits (binary search, fast & stable)
+function fitFontSize({
+  text,
+  maxW,
+  maxH,
+  fontFamily,
+  fontWeight = '700',
+  min = 24,
+  max = 160,
+}: {
+  text: string; maxW: number; maxH: number;
+  fontFamily: string; fontWeight?: string | number;
+  min?: number; max?: number;
+}) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d')!;
+  let lo = min, hi = max;
+  const lineH = 1.0; // Konva default for single-line
+  while (hi - lo > 0.5) {
+    const mid = (lo + hi) / 2;
+    ctx.font = `${fontWeight} ${mid}px ${fontFamily}`;
+    const w = ctx.measureText(text).width;
+    const h = mid * lineH;
+    if (w <= maxW && h <= maxH) lo = mid; else hi = mid;
+  }
+  return Math.floor(lo);
+}
 
 function PriceBadge({ x, y, price, theme }: { x: number; y: number; price: string; theme: Theme }) {
-  const bg = theme.saleBubble.bgColor
-  const tc = theme.saleBubble.textColor
-  const style = theme.saleBubble.style
+  const bg = theme.saleBubble.bgColor;
+  const tc = theme.saleBubble.textColor;
+  const style = theme.saleBubble.style;
 
-  // grow for longer prices so text never squishes
-  const len = price.length
-  const scale = len >= 6 ? 1.28 : len >= 5 ? 1.16 : len >= 4 ? 1.06 : 0.96
+  // Base geometry
+  const baseW = 240, baseH = 130;
+  const len = price.length;
 
-  const baseW = 240, baseH = 130
-  const W = baseW * scale
-  const H = baseH * scale
+  // Mild growth for longer prices so the *shape* doesn’t squash the text
+  const shapeScale = len >= 6 ? 1.28 : len >= 5 ? 1.16 : len >= 4 ? 1.06 : 0.96;
+  const W = baseW * shapeScale;
+  const H = baseH * shapeScale;
 
-  const spikes = 28
-  const depth  = 18 * scale
-  const pillR  = 70 * scale
-  const badgeR = 24 * scale
-  const circleR = Math.max(W, H)/2
-  const font = (len >= 5 ? 60 : 56) * scale
+  // Circle “sticker” uses a true diameter so text math is exact
+  const stickerD = Math.max(W, H);           // diameter
+  const stickerR = stickerD / 2 / 1.1;       // your visual tweak retained
+
+  // Padding inside the text box so letters never touch the edge
+  const pad = 16 * shapeScale;
+
+  // Define the text box per style
+  let textBoxW = W - pad * 2;
+  let textBoxH = H - pad * 2;
+
+  if (style === 'sticker') {
+    textBoxW = stickerD - pad * 2;
+    textBoxH = stickerD - pad * 2;
+  }
+
+  // Compute the largest font that fits that box
+  const font = fitFontSize({
+    text: price,
+    maxW: textBoxW,
+    maxH: textBoxH,
+    fontFamily: theme.fontFamily,
+    fontWeight: '800',
+    min: 28,
+    max: 80,
+  });
+
+  // For Konva centering we render a width/height box and offset by half
+  const renderW = style === 'sticker' ? stickerD : W;
+  const renderH = style === 'sticker' ? stickerD : H;
 
   return (
-    <Group x={x} y={y}>
-      {style === 'starburst' && <Line points={ovalBurstPoints(W, H, depth, spikes)} closed fill={bg} />}
-      {style === 'pill' && <Rect x={-W/2} y={-H/2} width={W} height={H} cornerRadius={pillR} fill={bg} />}
-      {style === 'badge' && <Rect x={-W/2} y={-H/2} width={W} height={H} cornerRadius={badgeR} fill={bg} />}
-      {style === 'sticker' && <Circle radius={circleR/1.1} fill={bg} />}
+    <Group x={x} y={y} listening={false}>
+      {style === 'starburst' && (
+        <Line points={ovalBurstPoints(W, H, 18 * shapeScale, 28)} closed fill={bg} />
+      )}
+      {style === 'pill'     && <Rect x={-W/2} y={-H/2} width={W} height={H} cornerRadius={70 * shapeScale} fill={bg} />}
+      {style === 'badge'    && <Rect x={-W/2} y={-H/2} width={W} height={H} cornerRadius={24 * shapeScale} fill={bg} />}
+      {style === 'sticker'  && <Circle radius={stickerR} fill={bg} />}
+
       <KText
-        text={price} fontSize={font} fill={tc}
-        width={W} height={H} offsetX={W/2} offsetY={H/2}
-        align="center" verticalAlign="middle" fontFamily={theme.fontFamily}
+        text={price}
+        fontSize={font}
+        fontStyle="700"
+        fill={tc}
+        width={renderW - pad * 2}
+        height={renderH - pad * 2}
+        // Center the text box in the shape:
+        x={-(renderW - pad * 2) / 2}
+        y={-(renderH - pad * 2) / 2}
+        align="center"
+        verticalAlign="middle"
+        fontFamily={theme.fontFamily}
       />
     </Group>
-  )
+  );
 }
 
 export function FeaturedLayer({ items, dateRange, theme }: { items: FeaturedItem[]; dateRange: string; theme: Theme }) {
