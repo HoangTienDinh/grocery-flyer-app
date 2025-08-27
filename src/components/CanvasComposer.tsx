@@ -486,29 +486,42 @@ function TableSection({
   const { headerH, rowH, fs, widths } = sectionMetrics(rows.length, fontScale, rowSideInset)
   const { usable, startX, nameW, sizeW, priceW } = widths
 
+  // Bigger header font, capped so it stays visually balanced in the bar
+  const titleFS = Math.min(Math.round(headerH * 0.6), 65)
+
   return (
     <Group y={yStart}>
       {/* Full-width header bar */}
       <Rect x={MARGIN} y={0} width={usable} height={headerH} fill={theme.category.bgColor} cornerRadius={24} />
+
+      {/* Centered category title */}
       <KText
-        x={MARGIN + 24} y={24}
-        text={title.toUpperCase()} fontSize={48} fontStyle="700"
-        fill={theme.category.textColor} fontFamily={theme.fontFamily}
+        x={MARGIN + 30}   // start from center
+        y={(headerH - titleFS) / 1.5}
+        width={usable / 2}        // only half width to the right
+        text={title.toUpperCase()}
+        fontSize={titleFS}
+        fontStyle="700"
+        align="left"
+        fill={theme.category.textColor}
+        fontFamily={theme.fontFamily}
       />
+
 
       {/* Narrower rows */}
       <Group y={headerH + 20}>
         {rows.map((r, i) => (
           <Group key={i} y={i * rowH}>
-            <KText x={startX}               y={0} width={nameW}  text={r.name}  fontSize={fs} fill={theme.saleItem.textColor} fontFamily={theme.fontFamily} />
-            <KText x={startX + nameW}       y={0} width={sizeW}  text={r.size}  fontSize={fs} fill={theme.saleItem.textColor} fontFamily={theme.fontFamily} />
-            <KText x={startX + nameW + sizeW} y={0} width={priceW} text={r.price} fontSize={fs} fill={theme.saleItem.textColor} align="right" fontFamily={theme.fontFamily} />
+            <KText x={startX}                 y={0} width={nameW}   text={r.name}   fontSize={fs} fill={theme.saleItem.textColor} fontFamily={theme.fontFamily} />
+            <KText x={startX + nameW}         y={0} width={sizeW}   text={r.size}   fontSize={fs} fill={theme.saleItem.textColor} fontFamily={theme.fontFamily} />
+            <KText x={startX + nameW + sizeW} y={0} width={priceW}  text={r.price}  fontSize={fs} fill={theme.saleItem.textColor} align="right" fontFamily={theme.fontFamily} />
           </Group>
         ))}
       </Group>
     </Group>
   )
 }
+
 
 /* ---------------- Grocery (image 2) ---------------- */
 export function GroceryLayer({ rows, dateRange, theme }: { rows: Row[]; dateRange: string; theme: Theme }) {
