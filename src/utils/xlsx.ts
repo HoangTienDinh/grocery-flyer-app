@@ -1,5 +1,4 @@
 import * as XLSX from 'xlsx'
-import { normalizePrice } from './format'
 export type FeaturedItem = { name:string; size:string; price:string; imageUrl:string }
 export type Row = { name:string; size:string; price:string }
 export type WorkbookData = { featured:FeaturedItem[]; grocery:Row[]; frozen:Row[]; meat:Row[]; produce:Row[] }
