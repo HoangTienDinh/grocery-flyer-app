@@ -3,7 +3,6 @@ import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from 
 import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { FeaturedItem } from '../utils/xlsx'
-import { maskCurrencyFromDigits, normalizePrice } from '../utils/format'
 import {
   listMedia,
   listBundledAssets,
@@ -33,6 +32,23 @@ function getScrollParents(node: HTMLElement | null) {
   }
   if (document.scrollingElement) out.push(document.scrollingElement as HTMLElement)
   return out
+}
+
+function normalizeDollarOnly(input: string): string {
+  const trimmed = input.trim()
+
+  // Allow free text if it contains non-numeric characters (excluding $ . ,)
+  if (/[^0-9.,$]/.test(trimmed)) {
+    return trimmed
+  }
+
+  // Strip $ and commas, parse number
+  const numeric = parseFloat(trimmed.replace(/[$,]/g, ''))
+  if (isNaN(numeric)) {
+    return trimmed // return as-is if parse fails
+  }
+
+  return `$${numeric.toFixed(2)}`
 }
 
 function useFloating(anchorEl: HTMLElement | null, offset = 6, maxMenuHeight = 360) {
@@ -272,8 +288,6 @@ function RowItem({
   const style = { transform: CSS.Transform.toString(transform), transition }
 
   const nameError = !item.name.trim()
-  const priceVal = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0
-  const priceError = priceVal < 0.01
 
   return (
     <tr ref={setNodeRef} style={style} className={isDragging ? 'opacity-60' : ''}>
@@ -308,14 +322,13 @@ function RowItem({
       <td className="px-2 align-top" style={{ width: PRICE_COL_W }}>
         <div>
           <input
-            className={`border rounded p-1 truncate text-right tabular-nums ${priceError ? 'border-red-500' : ''}`}
+            className="border rounded p-1 truncate text-right tabular-nums"
             style={{ width: PRICE_COL_W }}
             value={item.price}
-            onChange={e => update('price', maskCurrencyFromDigits(e.target.value))}
-            onBlur={e => update('price', normalizePrice(e.target.value))}
-            placeholder="$0.00"
+            onChange={e => update('price', e.target.value)}
+            onBlur={e => update('price', normalizeDollarOnly(e.target.value))}
+            placeholder="0.00"
           />
-          {priceError && <div className="text-xs text-red-600 mt-1">Price must be at least $0.01</div>}
         </div>
       </td>
 
