@@ -1,6 +1,6 @@
 import React from 'react'
 import type { Row } from '../utils/xlsx'
-import { maskCurrencyFromDigits, normalizePrice } from '../utils/format'
+import { normalizeDollarOnly } from '../utils/format'
 
 type Props = {
   rows: Row[]
@@ -11,7 +11,7 @@ type Props = {
 
 export default function TableEditor({ rows, setRows, onFocusAny, maxRows }: Props) {
   const addRow = () =>
-    setRows(prev => [...prev, { name: '', size: '', price: '$0.00' }])
+    setRows(prev => [...prev, { name: '', size: '', price: '' }])
 
   const update = (i: number, key: keyof Row, val: string) =>
     setRows(prev => {
@@ -29,11 +29,9 @@ export default function TableEditor({ rows, setRows, onFocusAny, maxRows }: Prop
 
   const onFocus = () => onFocusAny?.()
 
-  const onPriceChange = (i: number, val: string) =>
-    update(i, 'price', maskCurrencyFromDigits(val))
-
-  const onPriceBlur = (i: number, val: string) =>
-    update(i, 'price', normalizePrice(val))
+  // Price handlers: free text while typing; normalize only if pure dollar amount on blur.
+  const onPriceChange = (i: number, val: string) => update(i, 'price', val)
+  const onPriceBlur = (i: number, val: string) => update(i, 'price', normalizeDollarOnly(val))
 
   // Fixed widths for compact, tidy layout
   const SIZE_COL_W = 150
@@ -63,10 +61,8 @@ export default function TableEditor({ rows, setRows, onFocusAny, maxRows }: Prop
 
         <tbody>
           {rows.map((r, i) => {
-            // --- Validation per row ---
+            // --- Validation per row (name only) ---
             const nameError = !r.name.trim()
-            const priceVal = parseFloat(r.price.replace(/[^0-9.]/g, '')) || 0
-            const priceError = priceVal < 0.01
 
             return (
               <tr key={i} className="align-top">
@@ -100,22 +96,19 @@ export default function TableEditor({ rows, setRows, onFocusAny, maxRows }: Prop
                   />
                 </td>
 
-                {/* Price — compact, right-aligned, tabular numerals; fits `$555.55` */}
+                {/* Price — free text; normalize to $X.XX only if it's a plain number on blur */}
                 <td className="px-2 align-top">
                   <div>
                     <input
-                      className={`border rounded p-1 truncate text-right tabular-nums ${priceError ? 'border-red-500' : ''}`}
+                      className="border rounded p-1 truncate text-right tabular-nums"
                       style={{ width: PRICE_COL_W }}
                       value={r.price}
                       onFocus={onFocus}
                       onChange={e => onPriceChange(i, e.target.value)}
                       onBlur={e => onPriceBlur(i, e.target.value)}
                       title={r.price}
-                      placeholder="$0.00"
+                      placeholder="0.00 or 2/$3.00"
                     />
-                    {priceError && (
-                      <div className="text-xs text-red-600 mt-1">Price must be at least $0.01</div>
-                    )}
                   </div>
                 </td>
 

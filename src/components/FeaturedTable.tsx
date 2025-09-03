@@ -10,6 +10,7 @@ import {
   type MediaItem,
 } from '../utils/media'
 import { createPortal } from 'react-dom'
+import { normalizeDollarOnly } from '../utils/format'
 
 const SIZE_COL_W = 150
 const PRICE_COL_W = 96
@@ -32,23 +33,6 @@ function getScrollParents(node: HTMLElement | null) {
   }
   if (document.scrollingElement) out.push(document.scrollingElement as HTMLElement)
   return out
-}
-
-function normalizeDollarOnly(input: string): string {
-  const trimmed = input.trim()
-
-  // Allow free text if it contains non-numeric characters (excluding $ . ,)
-  if (/[^0-9.,$]/.test(trimmed)) {
-    return trimmed
-  }
-
-  // Strip $ and commas, parse number
-  const numeric = parseFloat(trimmed.replace(/[$,]/g, ''))
-  if (isNaN(numeric)) {
-    return trimmed // return as-is if parse fails
-  }
-
-  return `$${numeric.toFixed(2)}`
 }
 
 function useFloating(anchorEl: HTMLElement | null, offset = 6, maxMenuHeight = 360) {
