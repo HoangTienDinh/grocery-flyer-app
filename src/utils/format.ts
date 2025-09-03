@@ -14,3 +14,5 @@ export function normalizeDollarOnly(input: string): string {
 
   return `$${numeric.toFixed(2)}`
 }
+
+export const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n))
