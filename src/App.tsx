@@ -5,7 +5,7 @@ import TableEditor from './components/TableEditor'
 import FeaturedTable from './components/FeaturedTable'
 import ZoomBar from './components/ZoomBar'
 import FitStage from './components/FitStage'
-import { parseWorkbook, type FeaturedItem, type Row } from './utils/xlsx'
+import { parseWorkbookDetailed, type FeaturedItem, type Row } from './utils/xlsx'
 import { CANVAS_W, CANVAS_H, FeaturedLayer, GroceryLayer, GroupsLayer } from './components/CanvasComposer'
 import { saveAs } from 'file-saver'
 import dayjs from 'dayjs'
@@ -70,7 +70,9 @@ export default function App() {
   const [dateTo, setDateTo] = useState('')
   const [tab, setTab] = useState<Tab>('featured')
   const [leftTab, setLeftTab] = useState<LeftTab>('editor')
-  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  // CHANGED: array-of-strings to support multiple messages
+  const [uploadError, setUploadError] = useState<string[] | null>(null)
 
   const [theme, setTheme] = useState<Theme>(DEFAULT_THEME)
 
@@ -148,14 +150,35 @@ export default function App() {
     setUploadError(null)
     try {
       const ab = await file.arrayBuffer()
-      const parsed = parseWorkbook(ab)
-      setFeatured(parsed.featured)
-      setGrocery(parsed.grocery)
-      setFrozen(parsed.frozen)
-      setMeat(parsed.meat)
-      setProduce(parsed.produce)
-    } catch {
-      setUploadError('Could not read your spreadsheet. Ensure it is a .xlsx with all required sheets.')
+      const { data, issues } = parseWorkbookDetailed(ab)
+
+      // Always set whatever parsed successfully (partial success is OK)
+      setFeatured(data.featured)
+      setGrocery(data.grocery)
+      setFrozen(data.frozen)
+      setMeat(data.meat)
+      setProduce(data.produce)
+
+      // Build user-facing messages
+      const errors = issues.filter(i => i.level === 'error').map(i => i.message)
+      const warnings = issues.filter(i => i.level === 'warning').map(i => i.message)
+
+      if (errors.length || warnings.length) {
+        setUploadError([...errors, ...warnings])
+        if (!errors.length && warnings.length) {
+          toast('Imported with warnings. See ‘Import notes’.')
+        } else if (errors.length) {
+          toast('Some sheets had problems. Review the notes below.')
+        }
+      } else {
+        toast('Spreadsheet imported successfully!')
+      }
+    } catch (e) {
+      setUploadError([
+        e instanceof Error
+          ? e.message
+          : 'Could not read your spreadsheet. Ensure it is a .xlsx with all required sheets.',
+      ])
     }
   }
 
@@ -194,33 +217,56 @@ export default function App() {
     setTab(old)
   }
 
-const EditorPane = (
-  <div className="min-h-full flex flex-col">
-    <div className="p-4 border-b">
-      <div className="text-sm text-neutral-600 mb-2">Upload .xlsx</div>
+  const EditorPane = (
+    <div className="min-h-full flex flex-col">
+      <div className="p-4 border-b">
+        <div className="text-sm text-neutral-600 mb-2">Upload .xlsx</div>
 
-      <input
-        type="file"
-        accept=".xlsx"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f) }}
-      />
+        <input
+          type="file"
+          accept=".xlsx"
+          title="Only .xlsx (Excel). Required sheets: Featured Items, Grocery, Frozen Foods, Meat, Produce."
+          aria-label="Upload .xlsx file. Required sheets: Featured Items, Grocery, Frozen Foods, Meat, Produce."
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f) }}
+        />
 
-      {/* helper link right under the Browse input */}
-      <div className="mt-2 text-xs text-neutral-500">
-        Need a template?{" "}
-        <a
-          href={EXAMPLE_XLSX}
-          download="kims-flyer-example.xlsx"
-          className="text-blue-700 hover:text-blue-800 underline"
-        >
-          Download example .xlsx
-        </a>
+        {/* Helper link + schema expectations */}
+        <div className="mt-2 text-xs text-neutral-500">
+          Need a template?{' '}
+          <a
+            href={EXAMPLE_XLSX}
+            download="kims-flyer-example.xlsx"
+            className="text-blue-700 hover:text-blue-800 underline"
+          >
+            Download example .xlsx
+          </a>
+        </div>
+
+        {/* Required columns caption */}
+        <div className="mt-2 rounded-md bg-neutral-50 border border-neutral-200 p-2">
+          <div className="text-xs text-neutral-700 font-medium mb-1">Required columns</div>
+          <ul className="text-xs text-neutral-700 list-disc pl-5 space-y-1">
+            <li>
+              <span className="font-medium">Featured Items</span> → Product Name, Size, Price, Image File
+            </li>
+            <li>
+              <span className="font-medium">Grocery / Meat / Frozen Foods / Produce</span> → Product Name, Size, Price
+            </li>
+          </ul>
+        </div>
+
+        {uploadError && uploadError.length > 0 && (
+          <div className="mt-3">
+            <div className="text-sm font-medium text-red-700 mb-1">Import notes</div>
+            <ul className="text-sm text-red-700 list-disc pl-5 space-y-1">
+              {uploadError.map((m, idx) => (
+                <li key={idx}>{m}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
-      {uploadError && (
-        <div className="text-sm text-red-600 mt-2">{uploadError}</div>
-      )}
-    </div>
       <AccordionSection title="Dates" defaultOpen>
         <div className="grid grid-cols-2 gap-3 pb-2">
           <div>
@@ -233,18 +279,23 @@ const EditorPane = (
           </div>
         </div>
       </AccordionSection>
+
       <AccordionSection title="Featured — order & edits" defaultOpen>
         <FeaturedTable items={featured} setItems={setFeatured} onFocusAny={() => setTab('featured')} />
       </AccordionSection>
+
       <AccordionSection title="Grocery">
         <TableEditor rows={grocery} setRows={setGrocery} onFocusAny={() => setTab('grocery')} />
       </AccordionSection>
+
       <AccordionSection title="Frozen Foods">
         <TableEditor rows={frozen} setRows={setFrozen} onFocusAny={() => setTab('groups')} />
       </AccordionSection>
+
       <AccordionSection title="Meat">
         <TableEditor rows={meat} setRows={setMeat} onFocusAny={() => setTab('groups')} />
       </AccordionSection>
+
       <AccordionSection title="Produce">
         <TableEditor rows={produce} setRows={setProduce} onFocusAny={() => setTab('groups')} />
       </AccordionSection>
