@@ -64,6 +64,64 @@ function cellStr(r: Record<string, any>, key: string) {
   return toStr(r?.[key])
 }
 
+/**
+ * Normalize imported price cells:
+ * - Blank stays blank.
+ * - Coerces a leading number to two decimals.
+ * - Always prepends '$'.
+ * - Preserves any trailing text (e.g., " ea", "/100g").
+ * - Accepts existing '$', thousands commas, and comma decimal separators.
+ * - If no leading number found, returns original unchanged (avoids mangling free text).
+ *
+ * Examples:
+ *   3.49         -> "$3.49"
+ *   "3.5"        -> "$3.50"
+ *   "$3.5"       -> "$3.50"
+ *   "3.49 ea"    -> "$3.49 ea"
+ *   "1,234.5"    -> "$1234.50"
+ *   "2,49"       -> "$2.49"       (treat comma as decimal when no period is present)
+ *   ""           -> ""
+ *   "N/A"        -> "N/A"         (no leading number → unchanged)
+ */
+function normalizeImportedPrice(raw: any): string {
+  const s = toStr(raw)
+  if (!s) return ''
+
+  // Match optional $, then leading number with optional decimal (dot or comma), then keep the rest
+  const m = s.match(/^\s*\$?\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)(?:([.,])([0-9]+))?(.*)$/)
+  if (!m) {
+    // No leading number — don't force anything; return original
+    return s
+  }
+
+  let intPart = m[1] || ''
+  const sep = m[2] || ''
+  let fracPart = m[3] || ''
+  const tail = m[4] || ''
+
+  // Remove thousands commas from integer part
+  intPart = intPart.replace(/,/g, '')
+
+  // Build numeric string respecting decimal separator rules:
+  // - If there's a dot, use dot.
+  // - If there's ONLY a comma (no dot), treat comma as decimal.
+  // - If no separator, integer only.
+  let numStr = intPart
+  if (sep) {
+    const decimal = sep === ',' ? '.' : '.'
+    numStr += decimal + fracPart
+  }
+
+  const num = Number.parseFloat(numStr)
+  if (!Number.isFinite(num)) {
+    // Fallback: can't parse → return original unchanged
+    return s
+  }
+
+  const priced = `$${num.toFixed(2)}${tail ?? ''}`
+  return priced
+}
+
 function parseFeaturedRows(
   raw: Record<string, any>[] | null,
   issues: WorkbookIssue[],
@@ -86,7 +144,7 @@ function parseFeaturedRows(
     const rowNum = i + 2 // +2 = header row + 1-indexed
     const name = cellStr(r, 'Product Name')
     const size = cellStr(r, 'Size')
-    const price = toStr(r['Price']) // keep original (e.g., "$1.99")
+    const price = normalizeImportedPrice(r['Price'])
     const imageUrl = cellStr(r, 'Image File')
 
     if (!name) {
@@ -159,7 +217,7 @@ function parseSimpleRows(
     const rowNum = i + 2
     const name = cellStr(r, 'Product Name')
     const size = cellStr(r, 'Size')
-    const price = toStr(r['Price'])
+    const price = normalizeImportedPrice(r['Price'])
 
     if (!name) {
       dropped++
